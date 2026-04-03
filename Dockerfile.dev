@@ -1,0 +1,12 @@
+FROM oven/bun:1
+WORKDIR /app
+
+EXPOSE 3000
+ENV PORT=3000
+ENV HOSTNAME="0.0.0.0"
+
+COPY init/docker-dev-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-dev-entrypoint.sh
+
+ENTRYPOINT [ "docker-dev-entrypoint.sh" ]
+
