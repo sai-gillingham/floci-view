@@ -1,0 +1,15 @@
+services:
+  floci:
+    image: hectorvent/floci:latest
+    ports:
+      - "4566:4566"
+
+  console:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - FLOCI_ENDPOINT=http://floci:4566
+      - AWS_REGION=us-east-1
+    depends_on:
+      - floci
