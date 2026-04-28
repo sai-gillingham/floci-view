@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  Database,
   HardDrive,
   Home,
   MessageSquare,
@@ -17,6 +18,7 @@ const services = [
   { name: "SQS", href: "/sqs", icon: MessageSquare, category: "Messaging" },
   { name: "CloudWatch", href: "/cloudwatch", icon: Activity, category: "Monitoring" },
   { name: "Cognito", href: "/cognito", icon: Users, category: "Security" },
+  { name: "DynamoDB", href: "/dynamodb", icon: Database, category: "Database" },
 ];
 
 export function Sidebar() {

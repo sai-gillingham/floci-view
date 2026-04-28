@@ -3,6 +3,7 @@ import { SQSClient } from "@aws-sdk/client-sqs";
 import { CloudWatchLogsClient } from "@aws-sdk/client-cloudwatch-logs";
 import { CloudWatchClient } from "@aws-sdk/client-cloudwatch";
 import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 
 const FLOCI_ENDPOINT = process.env.FLOCI_ENDPOINT ?? "http://localhost:4566";
 
@@ -20,3 +21,4 @@ export const sqsClient = new SQSClient(commonConfig);
 export const cloudwatchLogsClient = new CloudWatchLogsClient(commonConfig);
 export const cloudwatchClient = new CloudWatchClient(commonConfig);
 export const cognitoClient = new CognitoIdentityProviderClient(commonConfig);
+export const dynamodbClient = new DynamoDBClient(commonConfig);

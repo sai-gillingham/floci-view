@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { StatusBadge } from "@/components/status-badge";
 import { PageHeader } from "@/components/page-header";
-import { HardDrive, MessageSquare, Activity, Users, RefreshCw } from "lucide-react";
+import { HardDrive, MessageSquare, Activity, Users, RefreshCw, Database } from "lucide-react";
 
 interface ServiceStatus {
   service: string;
@@ -17,6 +17,7 @@ const serviceIcons: Record<string, typeof HardDrive> = {
   SQS: MessageSquare,
   CloudWatch: Activity,
   Cognito: Users,
+  DynamoDB: Database,
 };
 
 const serviceHrefs: Record<string, string> = {
@@ -24,6 +25,7 @@ const serviceHrefs: Record<string, string> = {
   SQS: "/sqs",
   CloudWatch: "/cloudwatch",
   Cognito: "/cognito",
+  DynamoDB: "/dynamodb",
 };
 
 export default function Dashboard() {
