@@ -1,0 +1,12 @@
+language: en-GB
+tone: professional
+
+reviews:
+  profile: assertive
+  high_level_summary: true
+  line_by_line: true
+  security: true
+  refactor: true
+  request_changes_workflow: true
+  eslint:
+    enabled: true
