@@ -1,0 +1,9 @@
+language: en-GB
+
+reviews:
+  profile: assertive
+  high_level_summary: true
+  request_changes_workflow: true
+  tools:
+    eslint:
+      enabled: true
