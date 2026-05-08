@@ -38,8 +38,12 @@ jobs:
             echo "PR #${EXISTING} already open from ${BRANCH} → master; nothing to do."
             exit 0
           fi
-          gh pr create \
-            --base master \
-            --head "$BRANCH" \
-            --title "Release v${VERSION}" \
-            --generate-notes
+          gh api -X POST "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+            -f tag_name="v${VERSION}" \
+            -f target_commitish="${BRANCH}" \
+            --jq '.body' \
+            | gh pr create \
+                --base master \
+                --head "$BRANCH" \
+                --title "Release v${VERSION}" \
+                --body-file -
