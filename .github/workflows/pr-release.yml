@@ -24,6 +24,19 @@ jobs:
             exit 1
           fi
 
+      - uses: actions/checkout@v4
+
+      - name: Verify package.json version matches branch
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          BRANCH_VERSION="${HEAD_REF#release/v}"
+          PKG_VERSION=$(node -p "require('./package.json').version")
+          if [ "$PKG_VERSION" != "$BRANCH_VERSION" ]; then
+            echo "::error::package.json (${PKG_VERSION}) does not match release branch (${BRANCH_VERSION})"
+            exit 1
+          fi
+
   lint-full:
     needs: guard-source-branch
     runs-on: ubuntu-latest
