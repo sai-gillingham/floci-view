@@ -34,6 +34,7 @@ describe("GET /api/status", () => {
     cognito.on(ListUserPoolsCommand).resolves({ UserPools: [] });
 
     const res = await GET();
+    expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.services).toHaveLength(4);
 
@@ -61,6 +62,7 @@ describe("GET /api/status", () => {
     cognito.on(ListUserPoolsCommand).resolves({ UserPools: [] });
 
     const res = await GET();
+    expect(res.status).toBe(200);
     const body = await res.json();
     const sqsEntry = body.services.find((s: { service: string }) => s.service === "SQS");
     const s3Entry = body.services.find((s: { service: string }) => s.service === "S3");
@@ -74,6 +76,7 @@ describe("GET /api/status", () => {
     cwl.on(DescribeLogGroupsCommand).resolves({});
     cognito.on(ListUserPoolsCommand).resolves({});
     const res = await GET();
+    expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.services.map((s: { service: string }) => s.service)).toEqual([
       "S3",
