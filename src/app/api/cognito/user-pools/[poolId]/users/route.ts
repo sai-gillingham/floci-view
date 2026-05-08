@@ -12,7 +12,8 @@ export async function GET(
       new ListUsersCommand({ UserPoolId: poolId })
     );
     return NextResponse.json({ users: result.Users ?? [] });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
