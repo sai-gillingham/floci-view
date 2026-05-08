@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test.describe("Dashboard", () => {
-  test("shows the four service cards with status badges", async ({ page }) => {
+  test("shows the four service cards with links to their service pages", async ({ page }) => {
     const apiResponse = page.waitForResponse(
       (res) => res.url().includes("/api/status") && res.request().method() === "GET",
     );
