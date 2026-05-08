@@ -36,17 +36,6 @@ export default function CognitoPage() {
   const [users, setUsers] = useState<CognitoUser[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchUserPools();
-  }, []);
-
-  useEffect(() => {
-    if (selectedPool) {
-      fetchPoolDetail(selectedPool);
-      fetchUsers(selectedPool);
-    }
-  }, [selectedPool]);
-
   const fetchUserPools = async () => {
     setLoading(true);
     try {
@@ -72,6 +61,20 @@ export default function CognitoPage() {
       setUsers(data.users ?? []);
     } catch {}
   };
+
+  useEffect(() => {
+    const t = setTimeout(fetchUserPools, 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedPool) return;
+    const t = setTimeout(() => {
+      fetchPoolDetail(selectedPool);
+      fetchUsers(selectedPool);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [selectedPool]);
 
   const getEmail = (user: CognitoUser) => {
     return user.Attributes?.find((a) => a.Name === "email")?.Value ?? "-";

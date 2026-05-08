@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
       })
     );
     return NextResponse.json({ streams: result.logStreams ?? [] });
-  } catch (err: any) {
+  } catch {
     // Workaround for floci bug: DescribeLogStreams returns InternalServerError
     // Fall back to reading from floci's data file directly
     const streams = await readFlociStreamsFromFile(logGroupName);
