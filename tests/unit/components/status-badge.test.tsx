@@ -14,13 +14,15 @@ describe("StatusBadge", () => {
   it.each(cases)("renders %s with the right colour", (status, color) => {
     const { container } = render(<StatusBadge status={status} />);
     expect(screen.getByText(status)).toBeInTheDocument();
-    const dot = container.querySelector("span > span") as HTMLElement;
-    expect(dot.style.background).toContain(color);
+    const dot = container.querySelector<HTMLElement>("span > span");
+    expect(dot).not.toBeNull();
+    expect(dot!.style.background).toContain(color);
   });
 
   it("falls back to the disabled colour for an unknown status", () => {
     const { container } = render(<StatusBadge status="weird" />);
-    const dot = container.querySelector("span > span") as HTMLElement;
-    expect(dot.style.background).toContain("var(--text-secondary)");
+    const dot = container.querySelector<HTMLElement>("span > span");
+    expect(dot).not.toBeNull();
+    expect(dot!.style.background).toContain("var(--text-secondary)");
   });
 });
