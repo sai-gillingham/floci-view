@@ -47,4 +47,3 @@ ignore:
   - "e2e/**"
   - "**/*.config.*"
   - "**/*.d.ts"
-  - "next-env.d.ts"
