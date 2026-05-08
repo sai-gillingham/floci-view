@@ -3,10 +3,22 @@
   "version": "0.2.0",
   "private": true,
   "scripts": {
+    "predev": "bun run check:floci",
     "dev": "next dev",
+    "prebuild": "bun run check:floci",
     "build": "next build",
+    "prestart": "bun run check:floci",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test": "bun test tests/unit",
+    "test:watch": "bun test tests/unit --watch",
+    "test:coverage": "bun test tests/unit --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "check:floci": "bun scripts/check-floci-version.ts"
+  },
+  "floci": {
+    "version": "^1.5"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "^3.1016.0",
@@ -20,10 +32,15 @@
     "react-dom": "19.2.4"
   },
   "devDependencies": {
+    "@happy-dom/global-registrator": "^20.9.0",
+    "@playwright/test": "^1.59.1",
     "@tailwindcss/postcss": "^4",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "aws-sdk-client-mock": "^4.1.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.1",
     "tailwindcss": "^4",

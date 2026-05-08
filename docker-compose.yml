@@ -1,6 +1,10 @@
 services:
   floci:
-    image: hectorvent/floci:latest
+    # Pinned to a specific minor.patch tag. The supported range is declared in
+    # package.json under "floci.version" (^1.5); the FLOCI_VERSION env on the
+    # console service must point at this image's version so the runtime check
+    # can validate they agree.
+    image: floci/floci:1.5.13
     ports:
       - "4566:4566"
 
@@ -11,5 +15,6 @@ services:
     environment:
       - FLOCI_ENDPOINT=http://floci:4566
       - AWS_REGION=us-east-1
+      - FLOCI_VERSION=1.5.13
     depends_on:
       - floci
