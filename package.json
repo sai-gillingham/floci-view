@@ -3,15 +3,22 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "predev": "bun run check:floci",
     "dev": "next dev",
+    "prebuild": "bun run check:floci",
     "build": "next build",
+    "prestart": "bun run check:floci",
     "start": "next start",
     "lint": "eslint",
     "test": "bun test tests/unit",
     "test:watch": "bun test tests/unit --watch",
     "test:coverage": "bun test tests/unit --coverage",
     "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui"
+    "test:e2e:ui": "playwright test --ui",
+    "check:floci": "bun scripts/check-floci-version.ts"
+  },
+  "floci": {
+    "version": "^1.5"
   },
   "dependencies": {
     "@aws-sdk/client-cloudwatch": "^3.1016.0",
