@@ -1,0 +1,8 @@
+# All files require review from a maintainer before merging.
+# Add collaborators here as the team grows:
+#   * @sai-gillingham @new-collaborator
+#
+# Enforced by the "develop protection", "release/* protection", and
+# "master protection" repository rulesets in .github/rulesets/.
+
+* @sai-gillingham

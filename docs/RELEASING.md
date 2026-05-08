@@ -87,6 +87,4 @@ One-time setup:
 
 - **Coverage scope** — Codecov measures line coverage of code imported by the unit tests. `src/app/<service>/page.tsx` files are not unit-tested (they're verified end-to-end by Playwright instead) and so are not part of the coverage denominator. If pages are added that should be unit-tested, they will start counting.
 - **Supported Floci version range** — declared in `package.json` under `floci.version` (currently `^1.5`). `docker-compose.yml` and the e2e workflows pin to `floci/floci:1.5.13` and set `FLOCI_VERSION=1.5.13`; `bun run check:floci` (also wired as `predev`/`prebuild`/`prestart`) emits a warning if the env is missing or outside the declared range. Bump both together when upgrading Floci.
-- **Branch protection is manual** — workflow files alone do not enforce the gates. After the first release, configure required status checks:
-  - `develop`: `lint-changed`, `unit-tests`, `coverage`, `e2e-tests`, `build`, **`codecov/patch`**
-  - `master`: `guard-source-branch`, `lint-full`, `unit-tests`, `coverage`, `e2e-tests`, `build`, **`codecov/patch`**, **`codecov/project`**
+- **Branch protection** — enforced by Repository Rulesets defined in `.github/rulesets/` and applied with `bash scripts/apply-rulesets.sh`. See [`BRANCH-PROTECTION.md`](BRANCH-PROTECTION.md) for the full matrix of rules and the negative-path tests.

@@ -64,6 +64,10 @@ To cut a release:
 
 See [`docs/RELEASING.md`](docs/RELEASING.md) for the full runbook including rollback.
 
+## Branch protection
+
+Server-side enforcement of the GitFlow-lite model is configured via Repository Rulesets defined in `.github/rulesets/` and applied with `scripts/apply-rulesets.sh`. See [`docs/BRANCH-PROTECTION.md`](docs/BRANCH-PROTECTION.md) for what each ruleset enforces and how to apply or update them.
+
 ## License
 
 Apache License 2.0
