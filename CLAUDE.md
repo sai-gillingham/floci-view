@@ -11,10 +11,21 @@ Package manager is **Bun** (>= 1.0). Use `bun` for installs and scripts.
 - `bun run build` — production build
 - `bun start` — run production server
 - `bun run lint` — ESLint (uses flat config in `eslint.config.mjs`, extends `next/core-web-vitals` and `next/typescript`)
+- `bun run test` — unit tests (Bun runner + happy-dom + RTL + aws-sdk-client-mock); tests live in `tests/unit/`
+- `bun run test:coverage` — unit tests with lcov coverage in `coverage/`
+- `bun run test:e2e` — Playwright E2E (requires Floci on `FLOCI_ENDPOINT`); specs in `e2e/`
 - `docker compose up` — runs Floci (port 4566) + console together; production image via `Dockerfile`
 - `Dockerfile.dev` + `init/docker-dev-entrypoint.sh` provides a dev container
 
-There is no test runner configured in this repo.
+## Branching model
+
+`feature/* → develop → release/vX.Y.Z → master`. `master` is production-only; merging a `release/vX.Y.Z` branch into it triggers `release.yml`, which tags `vX.Y.Z`, builds the Docker image, and creates the GitHub Release. See `docs/RELEASING.md`.
+
+PR gates:
+- Into `develop` or `release/*` (`pr-integration.yml`): ESLint on changed files, unit tests, build, E2E. Coverage uploaded to Codecov with the `integration` flag — gate is the `codecov/patch` status (changed lines ≥ 80%).
+- Into `master` (`pr-release.yml`): full ESLint, unit tests, build, E2E. Coverage uploaded with the `release` flag — gates are `codecov/patch` and `codecov/project` (both ≥ 80%). Source branch must match `release/vX.Y.Z`.
+
+Codecov configuration lives in `codecov.yml`. Required repo secret: `CODECOV_TOKEN`. Required status checks for branch protection: `codecov/patch` (on develop and master), `codecov/project` (on master).
 
 ## Architecture
 
