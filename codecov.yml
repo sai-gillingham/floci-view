@@ -1,0 +1,49 @@
+coverage:
+  precision: 2
+  round: down
+  range: "70...100"
+  status:
+    project:
+      release:
+        target: 80%
+        threshold: 0%
+        flags:
+          - release
+        if_ci_failed: error
+        only_pulls: true
+    patch:
+      integration:
+        target: 80%
+        threshold: 0%
+        flags:
+          - integration
+        if_ci_failed: error
+        only_pulls: true
+      release:
+        target: 80%
+        threshold: 0%
+        flags:
+          - release
+        if_ci_failed: error
+        only_pulls: true
+
+flags:
+  integration:
+    paths:
+      - src/
+    carryforward: true
+  release:
+    paths:
+      - src/
+    carryforward: false
+
+comment:
+  layout: "reach, diff, flags, files"
+  require_changes: false
+  behavior: default
+
+ignore:
+  - "tests/**"
+  - "e2e/**"
+  - "**/*.config.*"
+  - "**/*.d.ts"

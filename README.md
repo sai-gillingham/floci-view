@@ -41,6 +41,29 @@ This starts both Floci and the console. Access the console at [http://localhost:
 | `FLOCI_ENDPOINT` | `http://localhost:4566` | Floci endpoint URL |
 | `AWS_REGION` | `us-east-1` | AWS region for SDK calls |
 
+## Testing
+
+```bash
+bun run test           # unit tests (tests/unit/)
+bun run test:coverage  # writes coverage/lcov.info
+bun run test:e2e       # Playwright (requires Floci on :4566)
+```
+
+Coverage is reported through [Codecov](https://about.codecov.io/) on every PR. The `CODECOV_TOKEN` repo secret must be configured for uploads to authenticate.
+
+## Releasing
+
+This repo follows GitFlow-lite: `feature/* → develop → release/vX.Y.Z → master`.
+
+To cut a release:
+
+1. `git checkout -b release/v1.2.3 develop`
+2. Bump `version` in `package.json` to match (`1.2.3`)
+3. Open a PR into `master` — `pr-release.yml` runs full ESLint + repo-wide coverage gate + E2E
+4. Merge — `release.yml` verifies versions match, tags `v1.2.3`, pushes the Docker image to `ghcr.io`, and drafts a GitHub Release
+
+See [`docs/RELEASING.md`](docs/RELEASING.md) for the full runbook including rollback.
+
 ## License
 
 Apache License 2.0
