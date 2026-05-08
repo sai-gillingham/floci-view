@@ -8,10 +8,6 @@ export default function SQSPage() {
   const [queues, setQueues] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchQueues();
-  }, []);
-
   const fetchQueues = async () => {
     setLoading(true);
     try {
@@ -21,6 +17,11 @@ export default function SQSPage() {
     } catch {}
     setLoading(false);
   };
+
+  useEffect(() => {
+    const t = setTimeout(fetchQueues, 0);
+    return () => clearTimeout(t);
+  }, []);
 
   const getQueueName = (url: string) => url.split("/").pop() ?? url;
 

@@ -30,24 +30,6 @@ export default function CloudWatchPage() {
   const [events, setEvents] = useState<LogEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    fetchLogGroups();
-  }, []);
-
-  useEffect(() => {
-    if (selectedGroup) {
-      setSelectedStream(null);
-      setEvents([]);
-      fetchStreams(selectedGroup);
-    }
-  }, [selectedGroup]);
-
-  useEffect(() => {
-    if (selectedGroup && selectedStream) {
-      fetchEvents(selectedGroup, selectedStream);
-    }
-  }, [selectedGroup, selectedStream]);
-
   const fetchLogGroups = async () => {
     setLoading(true);
     try {
@@ -75,6 +57,27 @@ export default function CloudWatchPage() {
       setEvents(data.events ?? []);
     } catch {}
   };
+
+  useEffect(() => {
+    const t = setTimeout(fetchLogGroups, 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedGroup) return;
+    const t = setTimeout(() => {
+      setSelectedStream(null);
+      setEvents([]);
+      fetchStreams(selectedGroup);
+    }, 0);
+    return () => clearTimeout(t);
+  }, [selectedGroup]);
+
+  useEffect(() => {
+    if (!selectedGroup || !selectedStream) return;
+    const t = setTimeout(() => fetchEvents(selectedGroup, selectedStream), 0);
+    return () => clearTimeout(t);
+  }, [selectedGroup, selectedStream]);
 
   const formatBytes = (bytes: number) => {
     if (!bytes || bytes === 0) return "0 B";
