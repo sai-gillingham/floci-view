@@ -1,0 +1,45 @@
+name: Open release PR
+
+on:
+  push:
+    branches: ['release/v*']
+
+concurrency:
+  group: open-release-pr-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  open-pr:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Validate branch name
+        env:
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          if ! printf '%s' "$BRANCH" | grep -Eq '^release/v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Branch '${BRANCH}' does not match release/vX.Y.Z; skipping."
+            exit 1
+          fi
+
+      - uses: actions/checkout@v4
+
+      - name: Open PR if one doesn't already exist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${BRANCH#release/v}"
+          EXISTING=$(gh pr list --base master --head "$BRANCH" --state open --json number --jq '.[0].number // ""')
+          if [ -n "$EXISTING" ]; then
+            echo "PR #${EXISTING} already open from ${BRANCH} → master; nothing to do."
+            exit 0
+          fi
+          gh pr create \
+            --base master \
+            --head "$BRANCH" \
+            --title "Release v${VERSION}" \
+            --generate-notes
