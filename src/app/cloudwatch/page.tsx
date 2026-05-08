@@ -162,6 +162,18 @@ export default function CloudWatchPage() {
     setNextEventToken(undefined);
   }, []);
 
+  const selectGroup = useCallback(
+    (logGroupName: string) => {
+      setSelectedGroup(logGroupName);
+      setSelectedStream(null);
+      setEvents([]);
+      setStreams([]);
+      setStreamFilter("");
+      resetEventPagination();
+    },
+    [resetEventPagination],
+  );
+
   const fetchLogGroups = useCallback(async () => {
     setLoadingGroups(true);
     setError(null);
@@ -231,12 +243,6 @@ export default function CloudWatchPage() {
   }, [fetchLogGroups]);
 
   useEffect(() => {
-    setSelectedStream(null);
-    setEvents([]);
-    setStreams([]);
-    setStreamFilter("");
-    resetEventPagination();
-
     if (!selectedGroup) return undefined;
 
     const timer = setTimeout(() => {
@@ -244,7 +250,7 @@ export default function CloudWatchPage() {
     }, 0);
 
     return () => clearTimeout(timer);
-  }, [fetchStreams, resetEventPagination, selectedGroup]);
+  }, [fetchStreams, selectedGroup]);
 
   useEffect(() => {
     if (!selectedGroup || !selectedStream) return undefined;
@@ -362,7 +368,6 @@ export default function CloudWatchPage() {
 
       if (!res.ok) throw new Error(data.error ?? "Unable to delete log stream");
 
-      setStreams((currentStreams) => currentStreams.filter((stream) => stream.logStreamName !== selectedStream));
       setSelectedStream(null);
       setEvents([]);
       resetEventPagination();
@@ -437,7 +442,7 @@ export default function CloudWatchPage() {
             <button
               className="mb-1 w-full rounded-md px-3 py-2 text-left text-sm transition-colors"
               key={group.logGroupName}
-              onClick={() => setSelectedGroup(group.logGroupName)}
+              onClick={() => selectGroup(group.logGroupName)}
               style={{
                 background: selectedGroup === group.logGroupName ? "var(--bg-tertiary)" : "transparent",
                 color: selectedGroup === group.logGroupName ? "var(--text-primary)" : "var(--text-secondary)",
