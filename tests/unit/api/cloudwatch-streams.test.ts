@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, mock } from "bun:test";
 import { mockClient } from "aws-sdk-client-mock";
 import {
   CloudWatchLogsClient,
+  DeleteLogStreamCommand,
   DescribeLogStreamsCommand,
 } from "@aws-sdk/client-cloudwatch-logs";
 import { NextRequest } from "next/server";
@@ -12,7 +13,7 @@ mock.module("fs", () => ({
   default: { promises: fsMock },
 }));
 
-const { GET } = await import("@/app/api/cloudwatch/streams/route");
+const { DELETE, GET } = await import("@/app/api/cloudwatch/streams/route");
 const cwl = mockClient(CloudWatchLogsClient);
 
 const buildRequest = (qs: Record<string, string>) => {
@@ -89,5 +90,36 @@ describe("GET /api/cloudwatch/streams", () => {
     const body = await res.json();
     expect(body._fallback).toBe(true);
     expect(body.streams).toEqual([]);
+  });
+});
+
+describe("DELETE /api/cloudwatch/streams", () => {
+  beforeEach(() => {
+    cwl.reset();
+    fsMock.readFile.mockReset();
+  });
+
+  it("returns 400 when required names are missing", async () => {
+    const res = await DELETE(buildRequest({ logGroupName: "g" }));
+    expect(res.status).toBe(400);
+  });
+
+  it("deletes the requested log stream", async () => {
+    cwl.on(DeleteLogStreamCommand).resolves({});
+    const res = await DELETE(buildRequest({ logGroupName: "g", logStreamName: "s" }));
+    const body = await res.json();
+    const command = cwl.commandCalls(DeleteLogStreamCommand)[0].args[0];
+
+    expect(body.ok).toBe(true);
+    expect(command.input).toEqual({ logGroupName: "g", logStreamName: "s" });
+  });
+
+  it("returns 500 on SDK error", async () => {
+    cwl.on(DeleteLogStreamCommand).rejects(new Error("delete failed"));
+    const res = await DELETE(buildRequest({ logGroupName: "g", logStreamName: "s" }));
+    const body = await res.json();
+
+    expect(res.status).toBe(500);
+    expect(body.error).toBe("delete failed");
   });
 });
