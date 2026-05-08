@@ -77,10 +77,14 @@ jobs:
         env:
           VERSION: ${{ needs.detect.outputs.version }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -a "v${VERSION}" -m "Release v${VERSION}"
-          git push origin "v${VERSION}"
+          if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+            echo "Tag v${VERSION} already exists; skipping tag creation."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "v${VERSION}" -m "Release v${VERSION}"
+            git push origin "v${VERSION}"
+          fi
 
       - uses: docker/setup-buildx-action@v3
 
@@ -116,4 +120,9 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ needs.detect.outputs.version }}
-        run: gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
+        run: |
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "Release v${VERSION} already exists; skipping."
+          else
+            gh release create "v${VERSION}" --title "v${VERSION}" --generate-notes
+          fi
