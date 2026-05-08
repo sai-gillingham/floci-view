@@ -16,9 +16,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Reject PRs not coming from release/*
+        env:
+          HEAD_REF: ${{ github.head_ref }}
         run: |
-          if [[ ! "${{ github.head_ref }}" =~ ^release/v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "::error::PRs into master must come from release/vX.Y.Z (got: ${{ github.head_ref }})"
+          if ! printf '%s' "$HEAD_REF" | grep -Eq '^release/v[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::PRs into master must come from release/vX.Y.Z (got: ${HEAD_REF})"
             exit 1
           fi
 
