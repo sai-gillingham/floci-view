@@ -2,7 +2,7 @@
 
 This repo follows GitFlow-lite:
 
-```
+```text
 feature/* ─┐
            └─► develop ──► release/vX.Y.Z ──► master ──► tag vX.Y.Z + Docker image + GitHub Release
 ```
@@ -12,6 +12,7 @@ feature/* ─┐
 ## Cutting a release
 
 1. **Branch off `develop`:**
+
    ```bash
    git checkout develop
    git pull
@@ -38,6 +39,7 @@ feature/* ─┐
    - Creates a GitHub Release with auto-generated notes
 
 6. **Back-merge** `master` → `develop` so `develop` includes any changes (e.g. version bump) made on the release branch:
+
    ```bash
    git checkout develop
    git merge --no-ff master
@@ -49,6 +51,7 @@ feature/* ─┐
 If a release needs to be retracted:
 
 1. Delete the tag locally and remote:
+
    ```bash
    git tag -d v1.2.3
    git push origin :v1.2.3
@@ -57,6 +60,7 @@ If a release needs to be retracted:
 2. Delete the GitHub Release via the UI or `gh release delete v1.2.3`.
 
 3. Re-tag the previous good SHA as `latest` in GHCR (or push a `latest` retagged from the previous version):
+
    ```bash
    docker buildx imagetools create \
      ghcr.io/<owner>/floci-view:v1.2.2 \
