@@ -22,6 +22,7 @@ describe("GET /api/cognito/user-pools/[poolId]/users", () => {
       Users: [{ Username: "alice" }, { Username: "bob" }],
     });
     const res = await callGet("abc");
+    expect(res.status).toBe(200);
     const body = await res.json();
     expect(body.users).toHaveLength(2);
   });
