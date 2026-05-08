@@ -21,7 +21,7 @@ feature/* ─┐
 
 2. **Bump `package.json`:** set `"version": "1.2.3"` (must match the branch suffix exactly).
 
-3. **Open a PR into `master`.** The `pr-release.yml` workflow runs:
+3. **Push the branch.** `open-release-pr.yml` opens a PR `release/vX.Y.Z → master` automatically (with auto-generated release notes as the body). If a PR for that branch is already open, it is left as-is. The `pr-release.yml` workflow then runs on the PR:
    - `guard-source-branch` — rejects PRs from anything other than `release/vX.Y.Z`
    - `lint-full` — ESLint across the whole repo
    - `unit-tests` — `bun test`
@@ -85,6 +85,7 @@ One-time setup:
 
 ## Known caveats
 
+- **Auto-opened release PR doesn't trigger `pr-release.yml`** — GitHub does not run downstream workflows for events that originate from `GITHUB_TOKEN`, so the PR opened by `open-release-pr.yml` will not fire `pr-release.yml` on its own. Push one more commit to the release branch (e.g. the `package.json` version bump if not yet pushed), or close-and-reopen the PR, to kick the gates off. To eliminate this step entirely, replace `secrets.GITHUB_TOKEN` in `open-release-pr.yml` with a PAT secret.
 - **Coverage scope** — Codecov measures line coverage of code imported by the unit tests. `src/app/<service>/page.tsx` files are not unit-tested (they're verified end-to-end by Playwright instead) and so are not part of the coverage denominator. If pages are added that should be unit-tested, they will start counting.
 - **Supported Floci version range** — declared in `package.json` under `floci.version` (currently `^1.5`). `docker-compose.yml` and the e2e workflows pin to `floci/floci:1.5.13` and set `FLOCI_VERSION=1.5.13`; `bun run check:floci` (also wired as `predev`/`prebuild`/`prestart`) emits a warning if the env is missing or outside the declared range. Bump both together when upgrading Floci.
 - **Branch protection is manual** — workflow files alone do not enforce the gates. After the first release, configure required status checks:
