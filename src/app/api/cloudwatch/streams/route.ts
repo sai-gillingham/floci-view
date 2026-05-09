@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { cloudwatchLogsClient } from "@/lib/aws-clients";
-import { DescribeLogStreamsCommand, LogStream } from "@aws-sdk/client-cloudwatch-logs";
+import {
+  DeleteLogStreamCommand,
+  DescribeLogStreamsCommand,
+  LogStream,
+} from "@aws-sdk/client-cloudwatch-logs";
 import { promises as fs } from "fs";
 import path from "path";
 
@@ -53,10 +57,32 @@ export async function GET(request: NextRequest) {
       })
     );
     return NextResponse.json({ streams: result.logStreams ?? [] });
-  } catch (err: any) {
+  } catch {
     // Workaround for floci bug: DescribeLogStreams returns InternalServerError
     // Fall back to reading from floci's data file directly
     const streams = await readFlociStreamsFromFile(logGroupName);
     return NextResponse.json({ streams, _fallback: true });
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  const logGroupName = request.nextUrl.searchParams.get("logGroupName");
+  const logStreamName = request.nextUrl.searchParams.get("logStreamName");
+
+  if (!logGroupName || !logStreamName) {
+    return NextResponse.json({ error: "logGroupName and logStreamName are required" }, { status: 400 });
+  }
+
+  try {
+    await cloudwatchLogsClient.send(
+      new DeleteLogStreamCommand({
+        logGroupName,
+        logStreamName,
+      })
+    );
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

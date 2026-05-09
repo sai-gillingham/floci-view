@@ -50,9 +50,12 @@ export default function Dashboard() {
   };
 
   useEffect(() => {
-    fetchStatus();
+    const initialTimeout = setTimeout(fetchStatus, 0);
     const interval = setInterval(fetchStatus, 5000);
-    return () => clearInterval(interval);
+    return () => {
+      clearTimeout(initialTimeout);
+      clearInterval(interval);
+    };
   }, []);
 
   return (

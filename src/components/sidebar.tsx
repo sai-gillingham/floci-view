@@ -21,10 +21,17 @@ const services = [
   { name: "DynamoDB", href: "/dynamodb", icon: Database, category: "Database" },
 ];
 
+const navItems = (() => {
+  let lastCategory = "";
+  return services.map((service) => {
+    const showCategory = !!service.category && service.category !== lastCategory;
+    if (service.category) lastCategory = service.category;
+    return { ...service, showCategory };
+  });
+})();
+
 export function Sidebar() {
   const pathname = usePathname();
-
-  let lastCategory = "";
 
   return (
     <aside
@@ -41,9 +48,8 @@ export function Sidebar() {
         </Link>
       </div>
       <nav className="flex-1 overflow-y-auto p-2">
-        {services.map((service) => {
-          const showCategory = service.category && service.category !== lastCategory;
-          if (service.category) lastCategory = service.category;
+        {navItems.map((service) => {
+          const showCategory = service.showCategory;
           const isActive = pathname === service.href || (service.href !== "/" && pathname.startsWith(service.href));
           const Icon = service.icon;
 

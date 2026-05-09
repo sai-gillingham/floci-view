@@ -15,21 +15,17 @@ interface S3Object {
   LastModified: string;
 }
 
+interface S3Prefix {
+  Prefix: string;
+}
+
 export default function S3Page() {
   const [buckets, setBuckets] = useState<S3Bucket[]>([]);
   const [selectedBucket, setSelectedBucket] = useState<string | null>(null);
   const [objects, setObjects] = useState<S3Object[]>([]);
-  const [prefixes, setPrefixes] = useState<any[]>([]);
+  const [prefixes, setPrefixes] = useState<S3Prefix[]>([]);
   const [currentPrefix, setCurrentPrefix] = useState("");
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchBuckets();
-  }, []);
-
-  useEffect(() => {
-    if (selectedBucket) fetchObjects(selectedBucket, currentPrefix);
-  }, [selectedBucket, currentPrefix]);
 
   const fetchBuckets = async () => {
     setLoading(true);
@@ -49,6 +45,17 @@ export default function S3Page() {
       setPrefixes(data.prefixes ?? []);
     } catch {}
   };
+
+  useEffect(() => {
+    const t = setTimeout(fetchBuckets, 0);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    if (!selectedBucket) return;
+    const t = setTimeout(() => fetchObjects(selectedBucket, currentPrefix), 0);
+    return () => clearTimeout(t);
+  }, [selectedBucket, currentPrefix]);
 
   const formatBytes = (bytes: number) => {
     if (bytes === 0) return "0 B";
@@ -126,7 +133,7 @@ export default function S3Page() {
                     </tr>
                   </thead>
                   <tbody>
-                    {prefixes.map((p: any) => (
+                    {prefixes.map((p) => (
                       <tr
                         key={p.Prefix}
                         className="border-t cursor-pointer hover:opacity-80"

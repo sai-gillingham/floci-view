@@ -35,7 +35,7 @@ export async function GET() {
   try {
     const result = await cloudwatchLogsClient.send(new DescribeLogGroupsCommand({}));
     return NextResponse.json({ logGroups: result.logGroups ?? [] });
-  } catch (err: any) {
+  } catch {
     // Workaround for floci bug: DescribeLogGroups returns InternalServerError
     // Fall back to reading from floci's data file directly
     const logGroups = await readFlociLogGroupsFromFile();
