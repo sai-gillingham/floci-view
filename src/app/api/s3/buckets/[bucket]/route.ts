@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { s3Client } from "@/lib/aws-clients";
-import { ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { DeleteBucketCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { errorResponse } from "../../helpers";
 
 export async function GET(
   _request: Request,
@@ -36,9 +37,26 @@ export async function GET(
       .sort()
       .map((p) => ({ Prefix: p }));
 
-    return NextResponse.json({ objects, prefixes });
+    return NextResponse.json({
+      objects,
+      prefixes,
+      isTruncated: result.IsTruncated ?? false,
+      nextContinuationToken: result.NextContinuationToken,
+    });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return errorResponse(error);
+  }
+}
+
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ bucket: string }> }
+) {
+  try {
+    const { bucket } = await params;
+    await s3Client.send(new DeleteBucketCommand({ Bucket: bucket }));
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    return errorResponse(error);
   }
 }
