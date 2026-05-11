@@ -1,13 +1,28 @@
 import { NextResponse } from "next/server";
 import { cognitoClient } from "@/lib/aws-clients";
-import { ListUserPoolsCommand } from "@aws-sdk/client-cognito-identity-provider";
+import {
+  CreateUserPoolCommand,
+  ListUserPoolsCommand,
+} from "@aws-sdk/client-cognito-identity-provider";
+import { createPoolInput, errorResponse, parseBody } from "../helpers";
 
 export async function GET() {
   try {
     const result = await cognitoClient.send(new ListUserPoolsCommand({ MaxResults: 60 }));
     return NextResponse.json({ userPools: result.UserPools ?? [] });
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    return NextResponse.json({ error: message }, { status: 500 });
+    return errorResponse(err);
+  }
+}
+
+export async function POST(request: Request) {
+  try {
+    const input = createPoolInput(await parseBody(request));
+    if (!input) return NextResponse.json({ error: "Pool name is required" }, { status: 400 });
+
+    const result = await cognitoClient.send(new CreateUserPoolCommand(input));
+    return NextResponse.json({ userPool: result.UserPool ?? null }, { status: 201 });
+  } catch (err) {
+    return errorResponse(err);
   }
 }
