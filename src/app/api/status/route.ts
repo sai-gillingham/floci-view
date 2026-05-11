@@ -3,10 +3,12 @@ import { s3Client } from "@/lib/aws-clients";
 import { sqsClient } from "@/lib/aws-clients";
 import { cloudwatchLogsClient } from "@/lib/aws-clients";
 import { cognitoClient } from "@/lib/aws-clients";
+import { dynamodbClient } from "@/lib/aws-clients";
 import { ListBucketsCommand } from "@aws-sdk/client-s3";
 import { ListQueuesCommand } from "@aws-sdk/client-sqs";
 import { DescribeLogGroupsCommand } from "@aws-sdk/client-cloudwatch-logs";
 import { ListUserPoolsCommand } from "@aws-sdk/client-cognito-identity-provider";
+import { ListTablesCommand } from "@aws-sdk/client-dynamodb";
 
 export async function GET() {
   const probes = await Promise.allSettled([
@@ -34,11 +36,17 @@ export async function GET() {
       count: r.UserPools?.length ?? 0,
       label: "user pools",
     })),
+    dynamodbClient.send(new ListTablesCommand({})).then((r) => ({
+      service: "DynamoDB",
+      status: "available" as const,
+      count: r.TableNames?.length ?? 0,
+      label: "tables",
+    })),
   ]);
 
   const services = probes.map((result, i) => {
-    const names = ["S3", "SQS", "CloudWatch", "Cognito"];
-    const labels = ["buckets", "queues", "log groups", "user pools"];
+    const names = ["S3", "SQS", "CloudWatch", "Cognito", "DynamoDB"];
+    const labels = ["buckets", "queues", "log groups", "user pools", "tables"];
     if (result.status === "fulfilled") {
       return result.value;
     }
