@@ -213,7 +213,9 @@ export function createClientInput(
       typeof body.allowedOAuthFlowsUserPoolClient === "boolean"
         ? body.allowedOAuthFlowsUserPoolClient
         : hasOAuthConfig || undefined,
-    PreventUserExistenceErrors: optionalString(body, "preventUserExistenceErrors"),
+    PreventUserExistenceErrors: optionalString(body, "preventUserExistenceErrors") as
+      | CreateUserPoolClientCommandInput["PreventUserExistenceErrors"]
+      | undefined,
     EnableTokenRevocation: optionalBoolean(body, "enableTokenRevocation"),
   });
 }

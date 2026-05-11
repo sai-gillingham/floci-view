@@ -486,11 +486,12 @@ export default function CognitoPage() {
   };
 
   const updateUserEnabled = (user: CognitoUser, enabled: boolean) => {
-    if (!selectedPool || !user.Username) return;
+    const username = user.Username;
+    if (!selectedPool || !username) return;
 
     void runAction(async () => {
       await responseJson<{ user?: CognitoUser }>(
-        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/users/${encodePath(user.Username)}`, {
+        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/users/${encodePath(username)}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ enabled }),
@@ -502,11 +503,12 @@ export default function CognitoPage() {
   };
 
   const resetPassword = (user: CognitoUser) => {
-    if (!selectedPool || !user.Username) return;
+    const username = user.Username;
+    if (!selectedPool || !username) return;
 
     void runAction(async () => {
       await responseJson<{ ok: boolean }>(
-        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/users/${encodePath(user.Username)}`, {
+        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/users/${encodePath(username)}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ action: "reset-password" }),
@@ -518,11 +520,12 @@ export default function CognitoPage() {
   };
 
   const deleteUser = (user: CognitoUser) => {
-    if (!selectedPool || !user.Username || !window.confirm(`Delete member ${user.Username}?`)) return;
+    const username = user.Username;
+    if (!selectedPool || !username || !window.confirm(`Delete member ${username}?`)) return;
 
     void runAction(async () => {
       await responseJson<{ ok: boolean }>(
-        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/users/${encodePath(user.Username)}`, {
+        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/users/${encodePath(username)}`, {
           method: "DELETE",
         }),
       );
@@ -580,15 +583,16 @@ export default function CognitoPage() {
   };
 
   const deleteGroup = (group: CognitoGroup) => {
-    if (!selectedPool || !group.GroupName || !window.confirm(`Delete group ${group.GroupName}?`)) return;
+    const groupName = group.GroupName;
+    if (!selectedPool || !groupName || !window.confirm(`Delete group ${groupName}?`)) return;
 
     void runAction(async () => {
       await responseJson<{ ok: boolean }>(
-        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/groups/${encodePath(group.GroupName)}`, {
+        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/groups/${encodePath(groupName)}`, {
           method: "DELETE",
         }),
       );
-      if (selectedGroup === group.GroupName) {
+      if (selectedGroup === groupName) {
         setSelectedGroup(null);
         setGroupMembers([]);
       }
@@ -622,14 +626,15 @@ export default function CognitoPage() {
   };
 
   const removeGroupMember = (user: CognitoUser) => {
-    if (!selectedPool || !selectedGroup || !user.Username) return;
+    const username = user.Username;
+    if (!selectedPool || !selectedGroup || !username) return;
 
     void runAction(async () => {
       await responseJson<{ ok: boolean }>(
         await fetch(`/api/cognito/user-pools/${selectedPoolPath}/groups/${encodePath(selectedGroup)}/members`, {
           method: "DELETE",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username: user.Username }),
+          body: JSON.stringify({ username }),
         }),
       );
       await fetchGroupMembers(selectedPool, selectedGroup);
@@ -679,11 +684,12 @@ export default function CognitoPage() {
   };
 
   const editClient = (client: UserPoolClient) => {
-    if (!selectedPool || !client.ClientId) return;
+    const clientId = client.ClientId;
+    if (!selectedPool || !clientId) return;
 
     void runAction(async () => {
       const data = await responseJson<{ client?: UserPoolClient | null }>(
-        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/clients/${encodePath(client.ClientId ?? "")}`),
+        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/clients/${encodePath(clientId)}`),
       );
       const detail = data.client ?? client;
       setEditingClient(detail.ClientId ?? "");
@@ -707,11 +713,12 @@ export default function CognitoPage() {
   };
 
   const deleteClient = (client: UserPoolClient) => {
-    if (!selectedPool || !client.ClientId || !window.confirm(`Delete client ${client.ClientName ?? client.ClientId}?`)) return;
+    const clientId = client.ClientId;
+    if (!selectedPool || !clientId || !window.confirm(`Delete client ${client.ClientName ?? clientId}?`)) return;
 
     void runAction(async () => {
       await responseJson<{ ok: boolean }>(
-        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/clients/${encodePath(client.ClientId ?? "")}`, {
+        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/clients/${encodePath(clientId)}`, {
           method: "DELETE",
         }),
       );
@@ -767,11 +774,12 @@ export default function CognitoPage() {
   };
 
   const deleteResourceServer = (server: ResourceServer) => {
-    if (!selectedPool || !server.Identifier || !window.confirm(`Delete resource server ${server.Identifier}?`)) return;
+    const identifier = server.Identifier;
+    if (!selectedPool || !identifier || !window.confirm(`Delete resource server ${identifier}?`)) return;
 
     void runAction(async () => {
       await responseJson<{ ok: boolean }>(
-        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/resource-servers/${encodePath(server.Identifier ?? "")}`, {
+        await fetch(`/api/cognito/user-pools/${selectedPoolPath}/resource-servers/${encodePath(identifier)}`, {
           method: "DELETE",
         }),
       );
