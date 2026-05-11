@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { s3Client } from "@/lib/aws-clients";
 import {
+  Event as S3NotificationEvents,
   GetBucketNotificationConfigurationCommand,
   PutBucketNotificationConfigurationCommand,
   type Event as S3Event,
@@ -23,18 +24,8 @@ interface TriggerConfiguration {
   suffixFilter?: string;
 }
 
-const allowedEvents = new Set<string>([
-  "s3:ObjectCreated:*",
-  "s3:ObjectCreated:Put",
-  "s3:ObjectCreated:Post",
-  "s3:ObjectCreated:Copy",
-  "s3:ObjectCreated:CompleteMultipartUpload",
-  "s3:ObjectRemoved:*",
-  "s3:ObjectRemoved:Delete",
-  "s3:ObjectRemoved:DeleteMarkerCreated",
-  "s3:ObjectRestore:*",
-  "s3:ObjectTagging:*",
-]);
+/** All S3 bucket notification event names accepted by PutBucketNotificationConfiguration (from AWS SDK model). */
+const allowedEvents = new Set<string>(Object.values(S3NotificationEvents));
 
 function filterRuleValue(filter: NotificationConfigurationFilter | undefined, name: "prefix" | "suffix") {
   return filter?.Key?.FilterRules?.find((rule) => rule.Name === name)?.Value ?? "";

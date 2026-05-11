@@ -27,6 +27,31 @@ describe("errorResponse", () => {
     const res = errorResponse(new Error("teapot"), 418);
     expect(res.status).toBe(418);
   });
+
+  it("uses the SDK error httpStatusCode when no status is provided", async () => {
+    const error = Object.assign(new Error("NoSuchKey"), {
+      $metadata: { httpStatusCode: 404 },
+    });
+    const res = errorResponse(error);
+    expect(res.status).toBe(404);
+    expect(await res.json()).toEqual({ error: "NoSuchKey" });
+  });
+
+  it("ignores SDK httpStatusCode outside the 4xx/5xx range", async () => {
+    const error = Object.assign(new Error("weird"), {
+      $metadata: { httpStatusCode: 200 },
+    });
+    const res = errorResponse(error);
+    expect(res.status).toBe(500);
+  });
+
+  it("prefers an explicit status over the SDK httpStatusCode", async () => {
+    const error = Object.assign(new Error("denied"), {
+      $metadata: { httpStatusCode: 403 },
+    });
+    const res = errorResponse(error, 502);
+    expect(res.status).toBe(502);
+  });
 });
 
 describe("readJsonBody", () => {

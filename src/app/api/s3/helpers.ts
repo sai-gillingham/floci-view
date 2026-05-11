@@ -7,9 +7,17 @@ export class MalformedJsonBodyError extends Error {
   }
 }
 
-export function errorResponse(error: unknown, status = 500) {
+function sdkErrorStatus(error: unknown): number | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const meta = (error as { $metadata?: { httpStatusCode?: number } }).$metadata;
+  const code = meta?.httpStatusCode;
+  return typeof code === "number" && code >= 400 && code < 600 ? code : undefined;
+}
+
+export function errorResponse(error: unknown, status?: number) {
   const message = error instanceof Error ? error.message : String(error);
-  return NextResponse.json({ error: message }, { status });
+  const finalStatus = status ?? sdkErrorStatus(error) ?? 500;
+  return NextResponse.json({ error: message }, { status: finalStatus });
 }
 
 export async function readJsonBody<T extends Record<string, unknown>>(request: Request): Promise<T> {

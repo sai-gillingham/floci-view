@@ -54,12 +54,6 @@ function isFileLike(value: FormDataEntryValue | null): value is File {
 
 const PREVIEW_MAX_BYTES = 512 * 1024;
 
-function parseContentRangeTotal(contentRange?: string) {
-  if (!contentRange) return undefined;
-  const m = contentRange.match(/\/(\d+)\s*$/);
-  return m ? Number(m[1]) : undefined;
-}
-
 function concatUint8Chunks(chunks: Uint8Array[], total: number) {
   const out = new Uint8Array(total);
   let offset = 0;
@@ -263,19 +257,15 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
     }
 
     const result = await s3Client.send(
-      new GetObjectCommand({
-        Bucket: bucket,
-        Key: key,
-        Range: `bytes=0-${PREVIEW_MAX_BYTES - 1}`,
-      }),
+      new GetObjectCommand({ Bucket: bucket, Key: key }),
     );
 
     const { bytes, streamTruncated } = await readAtMostBytes(result.Body, PREVIEW_MAX_BYTES);
-    const rangeTotal = parseContentRangeTotal(result.ContentRange);
-    const fullObjectLength = rangeTotal ?? (!streamTruncated ? bytes.byteLength : undefined);
+    const fullObjectLength =
+      result.ContentLength ?? (!streamTruncated ? bytes.byteLength : undefined);
     const contentLengthForJson = fullObjectLength ?? bytes.byteLength;
     const truncated =
-      streamTruncated || (rangeTotal != null && bytes.byteLength < rangeTotal);
+      streamTruncated || (fullObjectLength != null && bytes.byteLength < fullObjectLength);
 
     const textContent = isTextContent(result.ContentType);
     const body = textContent

@@ -172,7 +172,7 @@ describe("GET /api/s3/buckets/[bucket]/objects", () => {
     s3.on(GetObjectCommand).resolves({
       Body: Body(),
       ContentType: "text/plain",
-      ContentRange: `bytes 0-${512 * 1024 - 1}/${total}`,
+      ContentLength: total,
     });
 
     const res = await GET(new NextRequest("http://test/api/s3/buckets/assets/objects?key=big.txt"), context);
@@ -182,6 +182,32 @@ describe("GET /api/s3/buckets/[bucket]/objects", () => {
     expect(json.object.Truncated).toBe(true);
     expect(json.object.ContentLength).toBe(total);
     expect(json.object.Body.length).toBe(512 * 1024);
+  });
+
+  it("does not send a Range header when previewing", async () => {
+    s3.on(GetObjectCommand).resolves({
+      Body: "preview",
+      ContentType: "text/plain",
+      ContentLength: 7,
+    });
+
+    await GET(new NextRequest("http://test/api/s3/buckets/assets/objects?key=p.txt"), context);
+
+    const input = s3.commandCalls(GetObjectCommand)[0].args[0].input;
+    expect(input.Range).toBeUndefined();
+    expect(input).toMatchObject({ Bucket: "assets", Key: "p.txt" });
+  });
+
+  it("propagates the upstream HTTP status from S3 SDK errors", async () => {
+    const error = Object.assign(new Error("NoSuchKey"), {
+      name: "NoSuchKey",
+      $metadata: { httpStatusCode: 404 },
+    });
+    s3.on(GetObjectCommand).rejects(error);
+
+    const res = await GET(new NextRequest("http://test/api/s3/buckets/assets/objects?key=missing.json"), context);
+    expect(res.status).toBe(404);
+    expect((await res.json()).error).toBe("NoSuchKey");
   });
 
   it("uses measured length when ContentLength is missing", async () => {

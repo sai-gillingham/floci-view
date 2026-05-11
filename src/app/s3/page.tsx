@@ -199,6 +199,7 @@ export default function S3Page() {
   const [loadingObjects, setLoadingObjects] = useState(false);
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ kind: ToastKind; message: string } | null>(null);
+  const [hasMounted, setHasMounted] = useState(false);
 
   const [bucketName, setBucketName] = useState("");
   const [folderInput, setFolderInput] = useState("");
@@ -229,6 +230,8 @@ export default function S3Page() {
   );
 
   const selectedBucketPath = selectedBucket ? encodeURIComponent(selectedBucket) : "";
+  const selectedBucketRef = useRef(selectedBucket);
+  selectedBucketRef.current = selectedBucket;
 
   const setSuccess = useCallback((message: string) => setToast({ kind: "success", message }), []);
   const setError = useCallback((message: string) => setToast({ kind: "error", message }), []);
@@ -326,6 +329,10 @@ export default function S3Page() {
     setMoveTargetPrefix("");
     setTriggers([]);
     setEventBridgeEnabled(false);
+  }, []);
+
+  useEffect(() => {
+    setHasMounted(true);
   }, []);
 
   useEffect(() => {
@@ -540,6 +547,9 @@ export default function S3Page() {
   const viewObject = async (key: string, options?: { skipBusy?: boolean }) => {
     if (!selectedBucket) return;
 
+    const bucketAtStart = selectedBucket;
+    const pathAtStart = encodeURIComponent(bucketAtStart);
+
     const manageBusy = !options?.skipBusy;
     if (manageBusy) {
       setBusy(true);
@@ -549,8 +559,11 @@ export default function S3Page() {
     try {
       const params = new URLSearchParams({ key });
       const data = await responseJson<{ object?: S3ObjectDetail }>(
-        await fetch(`/api/s3/buckets/${selectedBucketPath}/objects?${params.toString()}`),
+        await fetch(`/api/s3/buckets/${pathAtStart}/objects?${params.toString()}`),
       );
+
+      if (selectedBucketRef.current !== bucketAtStart) return;
+
       const detail = data.object ?? null;
 
       setObjectDetail(detail);
@@ -559,6 +572,7 @@ export default function S3Page() {
       setMetadataCacheControl("");
       setMetadataDisposition("");
     } catch (error) {
+      if (selectedBucketRef.current !== bucketAtStart) return;
       setError(error instanceof Error ? error.message : String(error));
     } finally {
       if (manageBusy) setBusy(false);
@@ -743,7 +757,7 @@ export default function S3Page() {
             onClick={fetchBuckets}
             className={textButtonClass}
             style={{ borderColor: "var(--border)", color: "var(--text-secondary)" }}
-            disabled={loadingBuckets || busy}
+            disabled={hasMounted && (loadingBuckets || busy)}
           >
             <RefreshCw className="h-3.5 w-3.5" /> Refresh
           </button>
