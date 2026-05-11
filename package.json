@@ -1,6 +1,6 @@
 {
   "name": "floci-console",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "predev": "bun run check:floci",
