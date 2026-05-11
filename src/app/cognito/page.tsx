@@ -7,8 +7,12 @@ import { StatusBadge } from "@/components/status-badge";
 import {
   AppWindow,
   Ban,
+  Check,
   CheckCircle,
+  Copy,
   Edit3,
+  Eye,
+  EyeOff,
   KeyRound,
   Plus,
   RefreshCw,
@@ -60,6 +64,7 @@ interface CognitoGroup {
 interface UserPoolClient {
   ClientId?: string;
   ClientName?: string;
+  ClientSecret?: string;
   CreationDate?: string;
   LastModifiedDate?: string;
   GenerateSecret?: boolean;
@@ -252,6 +257,9 @@ export default function CognitoPage() {
   const [memberInput, setMemberInput] = useState("");
   const [clientForm, setClientForm] = useState(initialClientForm);
   const [editingClient, setEditingClient] = useState<string | null>(null);
+  const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({});
+  const [revealingClientId, setRevealingClientId] = useState<string | null>(null);
+  const [copiedClientId, setCopiedClientId] = useState<string | null>(null);
   const [resourceForm, setResourceForm] = useState(initialResourceForm);
   const [editingResource, setEditingResource] = useState<string | null>(null);
 
@@ -409,6 +417,9 @@ export default function CognitoPage() {
     setGroupForm(initialGroupForm);
     setClientForm(initialClientForm);
     setResourceForm(initialResourceForm);
+    setRevealedSecrets({});
+    setRevealingClientId(null);
+    setCopiedClientId(null);
 
     if (!selectedPool) return;
 
@@ -765,10 +776,67 @@ export default function CognitoPage() {
           method: "DELETE",
         }),
       );
+      setRevealedSecrets((current) => {
+        if (current[clientId] === undefined) return current;
+        const next = { ...current };
+        delete next[clientId];
+        return next;
+      });
       await fetchClients(selectedPool);
       setSuccess("User pool client deleted");
     });
   };
+
+  const toggleClientSecret = useCallback(
+    async (client: UserPoolClient) => {
+      const clientId = client.ClientId;
+      if (!selectedPool || !clientId) return;
+
+      if (revealedSecrets[clientId] !== undefined) {
+        setRevealedSecrets((current) => {
+          const next = { ...current };
+          delete next[clientId];
+          return next;
+        });
+        return;
+      }
+
+      setRevealingClientId(clientId);
+      setToast(null);
+      try {
+        const data = await responseJson<{ client?: UserPoolClient | null }>(
+          await fetch(`/api/cognito/user-pools/${encodePath(selectedPool)}/clients/${encodePath(clientId)}`),
+        );
+        const secret = data.client?.ClientSecret;
+        if (!secret) {
+          setError("This client has no secret (created without GenerateSecret).");
+          return;
+        }
+        setRevealedSecrets((current) => ({ ...current, [clientId]: secret }));
+      } catch (error) {
+        setError(error instanceof Error ? error.message : String(error));
+      } finally {
+        setRevealingClientId(null);
+      }
+    },
+    [revealedSecrets, selectedPool, setError],
+  );
+
+  const copyClientSecret = useCallback(
+    async (clientId: string, secret: string) => {
+      try {
+        await navigator.clipboard.writeText(secret);
+        setCopiedClientId(clientId);
+        setTimeout(
+          () => setCopiedClientId((current) => (current === clientId ? null : current)),
+          2000,
+        );
+      } catch {
+        setError("Clipboard write failed.");
+      }
+    },
+    [setError],
+  );
 
   const saveResourceServer = (event: FormEvent) => {
     event.preventDefault();
@@ -1464,24 +1532,64 @@ export default function CognitoPage() {
                     </div>
                   </form>
 
-                  <DataTable headers={["Client", "Client ID", "Created", "Actions"]} empty="No user pool clients found" colSpan={4}>
-                    {clients.map((client) => (
-                      <tr key={client.ClientId} className="border-t" style={{ borderColor: "var(--border)" }}>
-                        <td className="px-4 py-2">{client.ClientName}</td>
-                        <td className="px-4 py-2 font-mono text-xs" style={mutedTextStyle}>
-                          {client.ClientId}
-                        </td>
-                        <td className="px-4 py-2" style={mutedTextStyle}>
-                          {formatDateTime(client.CreationDate)}
-                        </td>
-                        <td className="px-4 py-2">
-                          <div className="flex justify-end gap-2">
-                            <IconAction label="Edit client" onClick={() => editClient(client)} icon={Edit3} disabled={busy} />
-                            <IconAction label="Delete client" onClick={() => deleteClient(client)} icon={Trash2} danger disabled={busy} />
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                  <DataTable headers={["Client", "Client ID", "Secret", "Created", "Actions"]} empty="No user pool clients found" colSpan={5}>
+                    {clients.map((client) => {
+                      const clientId = client.ClientId ?? "";
+                      const revealed = clientId ? revealedSecrets[clientId] : undefined;
+                      const isRevealing = revealingClientId === clientId;
+                      const isCopied = copiedClientId === clientId;
+
+                      return (
+                        <tr key={client.ClientId} className="border-t" style={{ borderColor: "var(--border)" }}>
+                          <td className="px-4 py-2">{client.ClientName}</td>
+                          <td className="px-4 py-2 font-mono text-xs" style={mutedTextStyle}>
+                            {client.ClientId}
+                          </td>
+                          <td className="px-4 py-2 font-mono text-xs">
+                            {isRevealing ? (
+                              <span className="animate-pulse" style={mutedTextStyle}>
+                                Loading…
+                              </span>
+                            ) : revealed === undefined ? (
+                              <div className="flex items-center gap-2">
+                                <span style={mutedTextStyle}>••••••••</span>
+                                <IconAction
+                                  label="Show client secret"
+                                  onClick={() => void toggleClientSecret(client)}
+                                  icon={Eye}
+                                  disabled={busy || !clientId}
+                                />
+                              </div>
+                            ) : (
+                              <div className="flex items-center gap-2">
+                                <span className="break-all">{revealed}</span>
+                                <IconAction
+                                  label={isCopied ? "Copied" : "Copy secret"}
+                                  onClick={() => void copyClientSecret(clientId, revealed)}
+                                  icon={isCopied ? Check : Copy}
+                                  disabled={busy}
+                                />
+                                <IconAction
+                                  label="Hide secret"
+                                  onClick={() => void toggleClientSecret(client)}
+                                  icon={EyeOff}
+                                  disabled={busy}
+                                />
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-4 py-2" style={mutedTextStyle}>
+                            {formatDateTime(client.CreationDate)}
+                          </td>
+                          <td className="px-4 py-2">
+                            <div className="flex justify-end gap-2">
+                              <IconAction label="Edit client" onClick={() => editClient(client)} icon={Edit3} disabled={busy} />
+                              <IconAction label="Delete client" onClick={() => deleteClient(client)} icon={Trash2} danger disabled={busy} />
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </DataTable>
                 </section>
               )}
