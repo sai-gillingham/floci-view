@@ -1,19 +1,32 @@
 import { NextResponse } from "next/server";
 
+export class MalformedJsonBodyError extends Error {
+  constructor(cause?: unknown) {
+    super("Malformed JSON body", { cause });
+    this.name = "MalformedJsonBodyError";
+  }
+}
+
 export function errorResponse(error: unknown, status = 500) {
   const message = error instanceof Error ? error.message : String(error);
   return NextResponse.json({ error: message }, { status });
 }
 
 export async function readJsonBody<T extends Record<string, unknown>>(request: Request): Promise<T> {
-  try {
-    const body = await request.json();
-    if (!body || typeof body !== "object" || Array.isArray(body)) return {} as T;
+  const text = await request.text();
+  const trimmed = text.trim();
+  if (!trimmed) return {} as T;
 
-    return body as T;
-  } catch {
-    return {} as T;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(trimmed);
+  } catch (cause) {
+    throw new MalformedJsonBodyError(cause);
   }
+
+  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {} as T;
+
+  return parsed as T;
 }
 
 export function metadataFromUnknown(value: unknown) {
@@ -51,10 +64,12 @@ export function encodeCopySource(bucket: string, key: string) {
 }
 
 export function chunkArray<T>(items: T[], chunkSize: number) {
+  const floored = Math.floor(chunkSize);
+  const size = Number.isFinite(chunkSize) && floored >= 1 ? floored : 1;
   const chunks: T[][] = [];
 
-  for (let index = 0; index < items.length; index += chunkSize) {
-    chunks.push(items.slice(index, index + chunkSize));
+  for (let index = 0; index < items.length; index += size) {
+    chunks.push(items.slice(index, index + size));
   }
 
   return chunks;

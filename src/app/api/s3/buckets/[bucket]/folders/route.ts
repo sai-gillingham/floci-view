@@ -10,10 +10,11 @@ import {
   chunkArray,
   encodeCopySource,
   errorResponse,
+  MalformedJsonBodyError,
   normalizeFolderPrefix,
   readJsonBody,
   stringFromUnknown,
-} from "../../../helpers";
+} from "@/app/api/s3/helpers";
 
 interface RouteContext {
   params: Promise<{ bucket: string }>;
@@ -55,15 +56,16 @@ async function deleteKeys(bucket: string, keys: string[]) {
 
 export async function POST(request: Request, { params }: RouteContext) {
   const { bucket } = await params;
-  const body = await readJsonBody<{
-    action?: unknown;
-    prefix?: unknown;
-    sourcePrefix?: unknown;
-    targetPrefix?: unknown;
-  }>(request);
-  const action = stringFromUnknown(body.action);
 
   try {
+    const body = await readJsonBody<{
+      action?: unknown;
+      prefix?: unknown;
+      sourcePrefix?: unknown;
+      targetPrefix?: unknown;
+    }>(request);
+    const action = stringFromUnknown(body.action);
+
     if (action === "create") {
       const prefix = normalizeFolderPrefix(stringFromUnknown(body.prefix));
 
@@ -119,6 +121,9 @@ export async function POST(request: Request, { params }: RouteContext) {
 
     return NextResponse.json({ error: "unsupported folder action" }, { status: 400 });
   } catch (error) {
+    if (error instanceof MalformedJsonBodyError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return errorResponse(error);
   }
 }

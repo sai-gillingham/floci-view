@@ -79,7 +79,8 @@ const iconButtonClass =
 const textButtonClass =
   "inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 
-const inputClass = "h-9 w-full rounded-md border px-3 text-sm outline-none";
+const inputClass =
+  "h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--accent)]";
 
 const S3_EVENTS = [
   "s3:ObjectCreated:*",
@@ -328,6 +329,8 @@ export default function S3Page() {
     setMetadataDisposition("");
     setMoveSourcePrefix("");
     setMoveTargetPrefix("");
+    setTriggers([]);
+    setEventBridgeEnabled(false);
     void fetchTriggers(selectedBucket);
   }, [fetchTriggers, selectedBucket]);
 
@@ -515,11 +518,14 @@ export default function S3Page() {
     }
   };
 
-  const viewObject = async (key: string) => {
+  const viewObject = async (key: string, options?: { skipBusy?: boolean }) => {
     if (!selectedBucket) return;
 
-    setBusy(true);
-    setToast(null);
+    const manageBusy = !options?.skipBusy;
+    if (manageBusy) {
+      setBusy(true);
+      setToast(null);
+    }
 
     try {
       const params = new URLSearchParams({ key });
@@ -536,7 +542,7 @@ export default function S3Page() {
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error));
     } finally {
-      setBusy(false);
+      if (manageBusy) setBusy(false);
     }
   };
 
@@ -591,7 +597,7 @@ export default function S3Page() {
           }),
         }),
       );
-      await viewObject(objectDetail.Key);
+      await viewObject(objectDetail.Key, { skipBusy: true });
       await fetchObjects(selectedBucket, currentPrefix);
       setSuccess(`Updated metadata for ${objectDetail.Key}`);
     } catch (error) {

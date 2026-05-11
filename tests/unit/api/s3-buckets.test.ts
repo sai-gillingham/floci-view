@@ -69,4 +69,19 @@ describe("POST /api/s3/buckets", () => {
     expect(res.status).toBe(400);
     expect(s3.commandCalls(CreateBucketCommand)).toHaveLength(0);
   });
+
+  it("returns 500 when create fails", async () => {
+    s3.on(CreateBucketCommand).rejects(new Error("already exists"));
+
+    const res = await POST(
+      new Request("http://test/api/s3/buckets", {
+        method: "POST",
+        body: JSON.stringify({ name: "assets" }),
+      }),
+    );
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe("already exists");
+  });
 });

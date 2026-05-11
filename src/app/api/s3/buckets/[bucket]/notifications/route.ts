@@ -8,7 +8,7 @@ import {
   type NotificationConfiguration,
   type NotificationConfigurationFilter,
 } from "@aws-sdk/client-s3";
-import { errorResponse, readJsonBody, stringFromUnknown } from "../../../helpers";
+import { errorResponse, MalformedJsonBodyError, readJsonBody, stringFromUnknown } from "@/app/api/s3/helpers";
 
 interface RouteContext {
   params: Promise<{ bucket: string }>;
@@ -168,16 +168,17 @@ export async function GET(_request: Request, { params }: RouteContext) {
 
 export async function PUT(request: Request, { params }: RouteContext) {
   const { bucket } = await params;
-  const body = await readJsonBody<{ triggers?: unknown; eventBridgeEnabled?: unknown }>(request);
-  const triggers = Array.isArray(body.triggers)
-    ? body.triggers.flatMap((trigger) => {
-        const normalized = normalizeTrigger(trigger);
-        return normalized ? [normalized] : [];
-      })
-    : [];
-  const eventBridgeEnabled = body.eventBridgeEnabled === true;
 
   try {
+    const body = await readJsonBody<{ triggers?: unknown; eventBridgeEnabled?: unknown }>(request);
+    const triggers = Array.isArray(body.triggers)
+      ? body.triggers.flatMap((trigger) => {
+          const normalized = normalizeTrigger(trigger);
+          return normalized ? [normalized] : [];
+        })
+      : [];
+    const eventBridgeEnabled = body.eventBridgeEnabled === true;
+
     await s3Client.send(
       new PutBucketNotificationConfigurationCommand({
         Bucket: bucket,
@@ -187,6 +188,9 @@ export async function PUT(request: Request, { params }: RouteContext) {
 
     return NextResponse.json({ ok: true, triggers, eventBridgeEnabled });
   } catch (error) {
+    if (error instanceof MalformedJsonBodyError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return errorResponse(error);
   }
 }

@@ -55,6 +55,57 @@ describe("GET /api/s3/buckets/[bucket]/notifications", () => {
       },
     ]);
   });
+
+  it("maps topic and lambda triggers without filters", async () => {
+    s3.on(GetBucketNotificationConfigurationCommand).resolves({
+      TopicConfigurations: [
+        {
+          Id: "t1",
+          TopicArn: "arn:aws:sns:us-east-1:000000000000:alerts",
+          Events: ["s3:ObjectCreated:Put"],
+        },
+      ],
+      LambdaFunctionConfigurations: [
+        {
+          Id: "l1",
+          LambdaFunctionArn: "arn:aws:lambda:us-east-1:000000000000:f",
+          Events: ["s3:ObjectRemoved:Delete"],
+        },
+      ],
+    });
+
+    const res = await GET(new Request("http://test/api/s3/buckets/assets/notifications"), context);
+    const body = await res.json();
+
+    expect(body.triggers).toEqual([
+      {
+        id: "t1",
+        destinationType: "Topic",
+        destinationArn: "arn:aws:sns:us-east-1:000000000000:alerts",
+        eventTypes: ["s3:ObjectCreated:Put"],
+        prefixFilter: "",
+        suffixFilter: "",
+      },
+      {
+        id: "l1",
+        destinationType: "Lambda",
+        destinationArn: "arn:aws:lambda:us-east-1:000000000000:f",
+        eventTypes: ["s3:ObjectRemoved:Delete"],
+        prefixFilter: "",
+        suffixFilter: "",
+      },
+    ]);
+    expect(body.eventBridgeEnabled).toBe(false);
+  });
+
+  it("returns 500 when the configuration cannot be loaded", async () => {
+    s3.on(GetBucketNotificationConfigurationCommand).rejects(new Error("throttled"));
+
+    const res = await GET(new Request("http://test/api/s3/buckets/assets/notifications"), context);
+
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe("throttled");
+  });
 });
 
 describe("PUT /api/s3/buckets/[bucket]/notifications", () => {
@@ -110,6 +161,158 @@ describe("PUT /api/s3/buckets/[bucket]/notifications", () => {
       },
     });
   });
+
+  it("writes topic and lambda triggers with optional prefix filters", async () => {
+    s3.on(PutBucketNotificationConfigurationCommand).resolves({});
+
+    const res = await PUT(
+      new Request("http://test/api/s3/buckets/assets/notifications", {
+        method: "PUT",
+        body: JSON.stringify({
+          eventBridgeEnabled: false,
+          triggers: [
+            {
+              id: "t1",
+              destinationType: "Topic",
+              destinationArn: "arn:aws:sns:us-east-1:000000000000:topic",
+              eventTypes: ["s3:ObjectTagging:*"],
+              suffixFilter: ".txt",
+            },
+            {
+              id: "l1",
+              destinationType: "Lambda",
+              destinationArn: "arn:aws:lambda:us-east-1:000000000000:fn",
+              eventTypes: ["s3:ObjectRestore:*"],
+              prefixFilter: "archives/",
+            },
+            {
+              destinationType: "Queue",
+              destinationArn: "",
+              eventTypes: ["s3:ObjectCreated:*"],
+            },
+          ],
+        }),
+      }),
+      context,
+    );
+
+    expect(res.status).toBe(200);
+    expect(s3.commandCalls(PutBucketNotificationConfigurationCommand)[0].args[0].input).toEqual({
+      Bucket: "assets",
+      NotificationConfiguration: {
+        QueueConfigurations: [],
+        TopicConfigurations: [
+          {
+            Id: "t1",
+            TopicArn: "arn:aws:sns:us-east-1:000000000000:topic",
+            Events: ["s3:ObjectTagging:*"],
+            Filter: {
+              Key: {
+                FilterRules: [{ Name: "suffix", Value: ".txt" }],
+              },
+            },
+          },
+        ],
+        LambdaFunctionConfigurations: [
+          {
+            Id: "l1",
+            LambdaFunctionArn: "arn:aws:lambda:us-east-1:000000000000:fn",
+            Events: ["s3:ObjectRestore:*"],
+            Filter: {
+              Key: {
+                FilterRules: [{ Name: "prefix", Value: "archives/" }],
+              },
+            },
+          },
+        ],
+      },
+    });
+  });
+
+  it("ignores triggers that fail validation", async () => {
+    s3.on(PutBucketNotificationConfigurationCommand).resolves({});
+
+    const res = await PUT(
+      new Request("http://test/api/s3/buckets/assets/notifications", {
+        method: "PUT",
+        body: JSON.stringify({
+          triggers: [
+            null,
+            {
+              destinationType: "Queue",
+              destinationArn: "arn:aws:sqs:us-east-1:000000000000:q",
+              eventTypes: [],
+            },
+            {
+              destinationType: "NotQueue",
+              destinationArn: "arn:aws:sqs:us-east-1:000000000000:q",
+              eventTypes: ["s3:ObjectCreated:*"],
+            },
+            {
+              destinationType: "Queue",
+              destinationArn: "arn:aws:sqs:us-east-1:000000000000:ok",
+              eventTypes: ["s3:ObjectCreated:Copy"],
+            },
+          ],
+        }),
+      }),
+      context,
+    );
+
+    expect(res.status).toBe(200);
+    expect(s3.commandCalls(PutBucketNotificationConfigurationCommand)[0].args[0].input).toEqual({
+      Bucket: "assets",
+      NotificationConfiguration: {
+        QueueConfigurations: [
+          {
+            QueueArn: "arn:aws:sqs:us-east-1:000000000000:ok",
+            Events: ["s3:ObjectCreated:Copy"],
+            Id: undefined,
+            Filter: undefined,
+          },
+        ],
+        TopicConfigurations: [],
+        LambdaFunctionConfigurations: [],
+      },
+    });
+  });
+
+  it("treats a missing triggers array as empty", async () => {
+    s3.on(PutBucketNotificationConfigurationCommand).resolves({});
+
+    const res = await PUT(
+      new Request("http://test/api/s3/buckets/assets/notifications", {
+        method: "PUT",
+        body: JSON.stringify({}),
+      }),
+      context,
+    );
+
+    expect(res.status).toBe(200);
+    expect(s3.commandCalls(PutBucketNotificationConfigurationCommand)[0].args[0].input).toEqual({
+      Bucket: "assets",
+      NotificationConfiguration: {
+        QueueConfigurations: [],
+        TopicConfigurations: [],
+        LambdaFunctionConfigurations: [],
+      },
+    });
+  });
+
+  it("returns 500 when saving fails", async () => {
+    s3.on(PutBucketNotificationConfigurationCommand).rejects(new Error("conflict"));
+
+    const res = await PUT(
+      new Request("http://test/api/s3/buckets/assets/notifications", {
+        method: "PUT",
+        body: JSON.stringify({ triggers: [] }),
+      }),
+      context,
+    );
+
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe("conflict");
+  });
 });
 
 describe("DELETE /api/s3/buckets/[bucket]/notifications", () => {
@@ -130,5 +333,17 @@ describe("DELETE /api/s3/buckets/[bucket]/notifications", () => {
       Bucket: "assets",
       NotificationConfiguration: {},
     });
+  });
+
+  it("returns 500 when clearing fails", async () => {
+    s3.on(PutBucketNotificationConfigurationCommand).rejects(new Error("locked"));
+
+    const res = await DELETE_NOTIFICATIONS(
+      new Request("http://test/api/s3/buckets/assets/notifications"),
+      context,
+    );
+
+    expect(res.status).toBe(500);
+    expect((await res.json()).error).toBe("locked");
   });
 });
