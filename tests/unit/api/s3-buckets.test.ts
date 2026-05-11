@@ -70,6 +70,20 @@ describe("POST /api/s3/buckets", () => {
     expect(s3.commandCalls(CreateBucketCommand)).toHaveLength(0);
   });
 
+  it("returns 400 when JSON body is malformed", async () => {
+    const res = await POST(
+      new Request("http://test/api/s3/buckets", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "not-json",
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Malformed JSON body" });
+    expect(s3.commandCalls(CreateBucketCommand)).toHaveLength(0);
+  });
+
   it("returns 500 when create fails", async () => {
     s3.on(CreateBucketCommand).rejects(new Error("already exists"));
 

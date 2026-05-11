@@ -157,14 +157,14 @@ function asyncIterableToReadableStream(body: AsyncIterableBody): ReadableStream<
 
 /** Streams S3 output to the response without buffering the full object in this handler. */
 function s3BodyToResponseBody(body: unknown): BodyInit {
-  if (body == null) return new Uint8Array(0);
+  if (body == null) return new Uint8Array(0) as BodyInit;
   if (typeof body === "string") return body;
-  if (body instanceof Uint8Array) return body;
-  if (body instanceof ArrayBuffer) return new Uint8Array(body);
+  if (body instanceof Uint8Array) return body as BodyInit;
+  if (body instanceof ArrayBuffer) return new Uint8Array(body) as BodyInit;
   if (typeof Blob !== "undefined" && body instanceof Blob) return body;
 
-  if (Readable.isReadable(body)) {
-    return Readable.toWeb(body as Readable);
+  if (Readable.isReadable(body as Readable)) {
+    return Readable.toWeb(body as Readable) as BodyInit;
   }
 
   if (isAsyncIterableBody(body)) {
@@ -192,7 +192,7 @@ function s3BodyToResponseBody(body: unknown): BodyInit {
     }
   }
 
-  return new Uint8Array(0);
+  return new Uint8Array(0) as BodyInit;
 }
 
 function isTextContent(contentType?: string) {
