@@ -10,6 +10,7 @@ import type {
   UpdateUserPoolClientCommandInput,
   UpdateUserPoolCommandInput,
   UserPoolClientType,
+  UserPoolMfaType,
   UserPoolType,
   VerifiedAttributeType,
 } from "@aws-sdk/client-cognito-identity-provider";
@@ -130,6 +131,17 @@ function preventUserExistenceErrorsFromBody(body: Record<string, unknown>): Prev
   return undefined;
 }
 
+/**
+ * Normalize `mfaConfiguration` from the request body for UpdateUserPool (see preventUserExistenceErrorsFromBody).
+ * Only Cognito UserPoolMfaType values are returned; invalid strings are ignored.
+ */
+function mfaConfigurationFromBody(body: Record<string, unknown>): UserPoolMfaType | undefined {
+  if (typeof body.mfaConfiguration !== "string") return undefined;
+  const value = body.mfaConfiguration.trim();
+  if (value === "OFF" || value === "ON" || value === "OPTIONAL") return value;
+  return undefined;
+}
+
 export function createPoolInput(body: Record<string, unknown>): CreateUserPoolCommandInput | null {
   const PoolName = requiredString(body, "name");
   if (!PoolName) return null;
@@ -180,7 +192,10 @@ export function poolUpdateInputFromDetail(
     update.DeletionProtection = body.deletionProtection ? "ACTIVE" : "INACTIVE";
   }
   if (typeof body.mfaConfiguration === "string") {
-    update.MfaConfiguration = body.mfaConfiguration as UpdateUserPoolCommandInput["MfaConfiguration"];
+    const MfaConfiguration = mfaConfigurationFromBody(body);
+    if (MfaConfiguration !== undefined) {
+      update.MfaConfiguration = MfaConfiguration;
+    }
   }
   if (typeof body.autoVerifyEmail === "boolean" || typeof body.autoVerifyPhone === "boolean") {
     const autoVerifiedAttributes: VerifiedAttributeType[] = [...(pool.AutoVerifiedAttributes ?? [])];

@@ -276,10 +276,13 @@ export default function CognitoPage() {
 
   const [poolSettingsForm, setPoolSettingsForm] = useState(initialPoolSettingsForm);
   const poolSettingsSourceKeyRef = useRef<string | null>(null);
-  if (poolSettingsFromPoolDetailKey !== poolSettingsSourceKeyRef.current) {
-    poolSettingsSourceKeyRef.current = poolSettingsFromPoolDetailKey;
-    setPoolSettingsForm(poolSettingsFromPoolDetail);
-  }
+
+  useEffect(() => {
+    if (poolSettingsFromPoolDetailKey !== poolSettingsSourceKeyRef.current) {
+      poolSettingsSourceKeyRef.current = poolSettingsFromPoolDetailKey;
+      setPoolSettingsForm(poolSettingsFromPoolDetail);
+    }
+  }, [poolSettingsFromPoolDetail, poolSettingsFromPoolDetailKey]);
 
   const selectedPoolPath = selectedPool ? encodePath(selectedPool) : "";
 

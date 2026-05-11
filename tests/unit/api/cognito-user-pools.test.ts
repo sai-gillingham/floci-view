@@ -24,6 +24,14 @@ describe("GET /api/cognito/user-pools", () => {
     expect(body.userPools).toHaveLength(2);
   });
 
+  it("returns an empty array when the response has no UserPools", async () => {
+    cognito.on(ListUserPoolsCommand).resolves({});
+    const res = await GET();
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.userPools).toEqual([]);
+  });
+
   it("returns 500 on SDK error", async () => {
     cognito.on(ListUserPoolsCommand).rejects(new Error("auth down"));
     const res = await GET();
@@ -68,5 +76,20 @@ describe("POST /api/cognito/user-pools", () => {
 
     expect(res.status).toBe(400);
     expect(cognito.commandCalls(CreateUserPoolCommand)).toHaveLength(0);
+  });
+
+  it("returns 500 when create fails", async () => {
+    cognito.on(CreateUserPoolCommand).rejects(new Error("limit exceeded"));
+
+    const res = await POST(
+      new Request("http://test/api/cognito/user-pools", {
+        method: "POST",
+        body: JSON.stringify({ name: "Pool" }),
+      }),
+    );
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe("limit exceeded");
   });
 });

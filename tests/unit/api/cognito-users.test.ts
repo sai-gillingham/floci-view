@@ -57,6 +57,14 @@ describe("GET /api/cognito/user-pools/[poolId]/users", () => {
     const body = await res.json();
     expect(body.error).toBe("forbidden");
   });
+
+  it("returns an empty array when the response has no Users", async () => {
+    cognito.on(ListUsersCommand).resolves({});
+    const res = await callGet("abc");
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.users).toEqual([]);
+  });
 });
 
 describe("POST /api/cognito/user-pools/[poolId]/users", () => {
@@ -82,6 +90,39 @@ describe("POST /api/cognito/user-pools/[poolId]/users", () => {
       UserAttributes: [{ Name: "email", Value: "alice@example.test" }],
       MessageAction: "SUPPRESS",
     });
+  });
+
+  it("requires a username", async () => {
+    const res = await callPost("abc", { email: "x@y.test" });
+
+    expect(res.status).toBe(400);
+    const body = await res.json();
+    expect(body.error).toBe("Username is required");
+    expect(cognito.commandCalls(AdminCreateUserCommand)).toHaveLength(0);
+  });
+
+  it("omits UserAttributes and MessageAction when not applicable", async () => {
+    cognito.on(AdminCreateUserCommand).resolves({ User: { Username: "bob" } });
+
+    const res = await callPost("abc", { username: "bob" });
+
+    expect(res.status).toBe(201);
+    const input = cognito.commandCalls(AdminCreateUserCommand)[0].args[0].input;
+    expect(input).toEqual({
+      UserPoolId: "abc",
+      Username: "bob",
+      TemporaryPassword: undefined,
+    });
+  });
+
+  it("returns 500 when create fails", async () => {
+    cognito.on(AdminCreateUserCommand).rejects(new Error("username exists"));
+
+    const res = await callPost("abc", { username: "alice" });
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe("username exists");
   });
 });
 

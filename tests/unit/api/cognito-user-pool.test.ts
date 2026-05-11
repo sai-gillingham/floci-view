@@ -92,6 +92,24 @@ describe("PATCH /api/cognito/user-pools/[poolId]", () => {
     expect(input.MfaConfiguration).toBe("OPTIONAL");
   });
 
+  it("ignores invalid mfaConfiguration and keeps the pool value", async () => {
+    cognito.on(DescribeUserPoolCommand).resolves({
+      UserPool: {
+        Id: "abc",
+        Name: "Pool",
+        DeletionProtection: "INACTIVE",
+        MfaConfiguration: "OFF",
+      },
+    });
+    cognito.on(UpdateUserPoolCommand).resolves({});
+
+    const res = await callPatch("abc", { name: "Pool", mfaConfiguration: "garbage" });
+
+    expect(res.status).toBe(200);
+    const input = cognito.commandCalls(UpdateUserPoolCommand)[0].args[0].input;
+    expect(input.MfaConfiguration).toBe("OFF");
+  });
+
   it("keeps existing auto-verified attributes when only one flag is sent", async () => {
     cognito.on(DescribeUserPoolCommand).resolves({
       UserPool: {
@@ -110,6 +128,49 @@ describe("PATCH /api/cognito/user-pools/[poolId]", () => {
     const input = cognito.commandCalls(UpdateUserPoolCommand)[0].args[0].input;
     expect(input.AutoVerifiedAttributes).toEqual(["email", "phone_number"]);
   });
+
+  it("returns 404 when the pool does not exist", async () => {
+    cognito.on(DescribeUserPoolCommand).resolves({});
+
+    const res = await callPatch("abc", { name: "Nope" });
+
+    expect(res.status).toBe(404);
+    const body = await res.json();
+    expect(body.error).toBe("User pool not found");
+    expect(cognito.commandCalls(UpdateUserPoolCommand)).toHaveLength(0);
+  });
+
+  it("returns 500 when update fails", async () => {
+    cognito.on(DescribeUserPoolCommand).resolves({
+      UserPool: { Id: "abc", Name: "P", DeletionProtection: "INACTIVE", MfaConfiguration: "OFF" },
+    });
+    cognito.on(UpdateUserPoolCommand).rejects(new Error("throttled"));
+
+    const res = await callPatch("abc", { name: "X" });
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe("throttled");
+  });
+
+  it("returns the refreshed pool after update", async () => {
+    cognito
+      .on(DescribeUserPoolCommand)
+      .resolvesOnce({
+        UserPool: { Id: "abc", Name: "Old", DeletionProtection: "INACTIVE", MfaConfiguration: "OFF" },
+      })
+      .resolves({
+        UserPool: { Id: "abc", Name: "New", DeletionProtection: "INACTIVE", MfaConfiguration: "OFF" },
+      });
+    cognito.on(UpdateUserPoolCommand).resolves({});
+
+    const res = await callPatch("abc", { name: "New" });
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.userPool?.Name).toBe("New");
+    expect(cognito.commandCalls(DescribeUserPoolCommand)).toHaveLength(2);
+  });
 });
 
 describe("DELETE /api/cognito/user-pools/[poolId]", () => {
@@ -126,5 +187,15 @@ describe("DELETE /api/cognito/user-pools/[poolId]", () => {
     expect(cognito.commandCalls(DeleteUserPoolCommand)[0].args[0].input).toEqual({
       UserPoolId: "abc",
     });
+  });
+
+  it("returns 500 on SDK error", async () => {
+    cognito.on(DeleteUserPoolCommand).rejects(new Error("access denied"));
+
+    const res = await callDelete("abc");
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toBe("access denied");
   });
 });

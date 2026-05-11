@@ -10,7 +10,7 @@ import {
   optionalString,
   parseBody,
   requiredString,
-} from "../../../helpers";
+} from "@/app/api/cognito/helpers";
 
 export async function GET(
   _request: Request,
