@@ -91,6 +91,25 @@ describe("PATCH /api/cognito/user-pools/[poolId]", () => {
     expect(input.DeletionProtection).toBe("INACTIVE");
     expect(input.MfaConfiguration).toBe("OPTIONAL");
   });
+
+  it("keeps existing auto-verified attributes when only one flag is sent", async () => {
+    cognito.on(DescribeUserPoolCommand).resolves({
+      UserPool: {
+        Id: "abc",
+        Name: "Pool",
+        AutoVerifiedAttributes: ["email", "phone_number"],
+        DeletionProtection: "INACTIVE",
+        MfaConfiguration: "OFF",
+      },
+    });
+    cognito.on(UpdateUserPoolCommand).resolves({});
+
+    const res = await callPatch("abc", { autoVerifyPhone: true });
+
+    expect(res.status).toBe(200);
+    const input = cognito.commandCalls(UpdateUserPoolCommand)[0].args[0].input;
+    expect(input.AutoVerifiedAttributes).toEqual(["email", "phone_number"]);
+  });
 });
 
 describe("DELETE /api/cognito/user-pools/[poolId]", () => {

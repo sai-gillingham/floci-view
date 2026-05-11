@@ -15,7 +15,7 @@ import {
   optionalBoolean,
   optionalString,
   parseBody,
-} from "../../../../helpers";
+} from "@/app/api/cognito/helpers";
 
 type UserParams = Promise<{ poolId: string; username: string[] }>;
 

@@ -5,7 +5,7 @@ import {
   DescribeUserPoolCommand,
   UpdateUserPoolCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { errorResponse, parseBody, poolUpdateInputFromDetail } from "../../helpers";
+import { errorResponse, parseBody, poolUpdateInputFromDetail } from "@/app/api/cognito/helpers";
 
 export async function GET(
   _request: Request,

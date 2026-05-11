@@ -4,6 +4,7 @@ import {
   CognitoIdentityProviderClient,
   CreateResourceServerCommand,
   DeleteResourceServerCommand,
+  DescribeResourceServerCommand,
   ListResourceServersCommand,
   UpdateResourceServerCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
@@ -93,6 +94,37 @@ describe("PATCH /api/cognito/user-pools/[poolId]/resource-servers/[identifier]",
       Identifier: "api",
       Name: "API v2",
       Scopes: [{ ScopeName: "write", ScopeDescription: "Write access" }],
+    });
+  });
+
+  it("keeps the existing display name when name is omitted (scopes-only update)", async () => {
+    cognito.on(DescribeResourceServerCommand).resolves({
+      ResourceServer: { Identifier: "api", Name: "My API" },
+    });
+    cognito.on(UpdateResourceServerCommand).resolves({
+      ResourceServer: { Identifier: "api", Name: "My API" },
+    });
+
+    const res = await PATCH(
+      new Request("http://test/api/cognito/user-pools/abc/resource-servers/api", {
+        method: "PATCH",
+        body: JSON.stringify({
+          scopes: [{ ScopeName: "read", ScopeDescription: "Read access" }],
+        }),
+      }),
+      resourceParams,
+    );
+
+    expect(res.status).toBe(200);
+    expect(cognito.commandCalls(DescribeResourceServerCommand)[0].args[0].input).toEqual({
+      UserPoolId: "abc",
+      Identifier: "api",
+    });
+    expect(cognito.commandCalls(UpdateResourceServerCommand)[0].args[0].input).toEqual({
+      UserPoolId: "abc",
+      Identifier: "api",
+      Name: "My API",
+      Scopes: [{ ScopeName: "read", ScopeDescription: "Read access" }],
     });
   });
 });

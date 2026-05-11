@@ -5,6 +5,7 @@ import type {
   CreateUserPoolCommandInput,
   ExplicitAuthFlowsType,
   OAuthFlowType,
+  PreventUserExistenceErrorTypes,
   ResourceServerScopeType,
   UpdateUserPoolClientCommandInput,
   UpdateUserPoolCommandInput,
@@ -118,6 +119,17 @@ function cleanUndefined<T extends Record<string, unknown>>(input: T) {
   return input;
 }
 
+/**
+ * Normalize `PreventUserExistenceErrors` from the request body: uses optionalString on
+ * `preventUserExistenceErrors`, then allows only Cognito's "ENABLED" | "LEGACY" (used by
+ * createClientInput and clientUpdateInputFromDetail).
+ */
+function preventUserExistenceErrorsFromBody(body: Record<string, unknown>): PreventUserExistenceErrorTypes | undefined {
+  const raw = optionalString(body, "preventUserExistenceErrors");
+  if (raw === "ENABLED" || raw === "LEGACY") return raw;
+  return undefined;
+}
+
 export function createPoolInput(body: Record<string, unknown>): CreateUserPoolCommandInput | null {
   const PoolName = requiredString(body, "name");
   if (!PoolName) return null;
@@ -138,10 +150,6 @@ export function poolUpdateInputFromDetail(
   pool: UserPoolType,
   body: Record<string, unknown>,
 ): UpdateUserPoolCommandInput {
-  const autoVerifiedAttributes: VerifiedAttributeType[] = [];
-  if (optionalBoolean(body, "autoVerifyEmail")) autoVerifiedAttributes.push("email");
-  if (optionalBoolean(body, "autoVerifyPhone")) autoVerifiedAttributes.push("phone_number");
-
   const update = cleanUndefined({
     UserPoolId: pool.Id,
     Policies: pool.Policies,
@@ -175,6 +183,23 @@ export function poolUpdateInputFromDetail(
     update.MfaConfiguration = body.mfaConfiguration as UpdateUserPoolCommandInput["MfaConfiguration"];
   }
   if (typeof body.autoVerifyEmail === "boolean" || typeof body.autoVerifyPhone === "boolean") {
+    const autoVerifiedAttributes: VerifiedAttributeType[] = [...(pool.AutoVerifiedAttributes ?? [])];
+    if (typeof body.autoVerifyEmail === "boolean") {
+      if (body.autoVerifyEmail) {
+        if (!autoVerifiedAttributes.includes("email")) autoVerifiedAttributes.push("email");
+      } else {
+        const i = autoVerifiedAttributes.indexOf("email");
+        if (i !== -1) autoVerifiedAttributes.splice(i, 1);
+      }
+    }
+    if (typeof body.autoVerifyPhone === "boolean") {
+      if (body.autoVerifyPhone) {
+        if (!autoVerifiedAttributes.includes("phone_number")) autoVerifiedAttributes.push("phone_number");
+      } else {
+        const i = autoVerifiedAttributes.indexOf("phone_number");
+        if (i !== -1) autoVerifiedAttributes.splice(i, 1);
+      }
+    }
     update.AutoVerifiedAttributes = autoVerifiedAttributes;
   }
 
@@ -213,9 +238,7 @@ export function createClientInput(
       typeof body.allowedOAuthFlowsUserPoolClient === "boolean"
         ? body.allowedOAuthFlowsUserPoolClient
         : hasOAuthConfig || undefined,
-    PreventUserExistenceErrors: optionalString(body, "preventUserExistenceErrors") as
-      | CreateUserPoolClientCommandInput["PreventUserExistenceErrors"]
-      | undefined,
+    PreventUserExistenceErrors: preventUserExistenceErrorsFromBody(body),
     EnableTokenRevocation: optionalBoolean(body, "enableTokenRevocation"),
   });
 }
@@ -270,9 +293,10 @@ export function clientUpdateInputFromDetail(
     update.AllowedOAuthFlowsUserPoolClient = body.allowedOAuthFlowsUserPoolClient;
   }
   if (typeof body.preventUserExistenceErrors === "string") {
-    update.PreventUserExistenceErrors = optionalString(body, "preventUserExistenceErrors") as
-      | UpdateUserPoolClientCommandInput["PreventUserExistenceErrors"]
-      | undefined;
+    const PreventUserExistenceErrors = preventUserExistenceErrorsFromBody(body);
+    if (PreventUserExistenceErrors !== undefined) {
+      update.PreventUserExistenceErrors = PreventUserExistenceErrors;
+    }
   }
   if (typeof body.enableTokenRevocation === "boolean") {
     update.EnableTokenRevocation = body.enableTokenRevocation;

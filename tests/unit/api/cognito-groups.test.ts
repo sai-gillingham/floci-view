@@ -109,26 +109,43 @@ describe("group members", () => {
     cognito.reset();
   });
 
-  it("lists, adds, and removes group members", async () => {
+  it("lists group members", async () => {
     cognito.on(ListUsersInGroupCommand).resolves({ Users: [{ Username: "alice" }] });
-    cognito.on(AdminAddUserToGroupCommand).resolves({});
-    cognito.on(AdminRemoveUserFromGroupCommand).resolves({});
 
     const listRes = await GET_MEMBERS(
       new Request("http://test/api/cognito/user-pools/abc/groups/admins/members"),
       groupParams,
     );
+    expect(listRes.status).toBe(200);
     const listBody = await listRes.json();
+    expect(listBody.users).toHaveLength(1);
     expect(listBody.users[0].Username).toBe("alice");
+    expect(cognito.commandCalls(ListUsersInGroupCommand)[0].args[0].input).toEqual({
+      UserPoolId: "abc",
+      GroupName: "admins",
+      Limit: 60,
+    });
+  });
 
-    await POST_MEMBER(
+  it("adds a group member", async () => {
+    cognito.on(AdminAddUserToGroupCommand).resolves({});
+
+    const res = await POST_MEMBER(
       new Request("http://test/api/cognito/user-pools/abc/groups/admins/members", {
         method: "POST",
         body: JSON.stringify({ username: "bob" }),
       }),
       groupParams,
     );
-    await DELETE_MEMBER(
+
+    expect(res.status).toBe(201);
+    expect(cognito.commandCalls(AdminAddUserToGroupCommand)[0].args[0].input.Username).toBe("bob");
+  });
+
+  it("removes a group member", async () => {
+    cognito.on(AdminRemoveUserFromGroupCommand).resolves({});
+
+    const res = await DELETE_MEMBER(
       new Request("http://test/api/cognito/user-pools/abc/groups/admins/members", {
         method: "DELETE",
         body: JSON.stringify({ username: "bob" }),
@@ -136,7 +153,7 @@ describe("group members", () => {
       groupParams,
     );
 
-    expect(cognito.commandCalls(AdminAddUserToGroupCommand)[0].args[0].input.Username).toBe("bob");
+    expect(res.status).toBe(200);
     expect(cognito.commandCalls(AdminRemoveUserFromGroupCommand)[0].args[0].input.Username).toBe("bob");
   });
 });

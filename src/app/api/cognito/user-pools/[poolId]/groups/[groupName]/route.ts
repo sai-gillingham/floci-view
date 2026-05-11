@@ -9,7 +9,7 @@ import {
   optionalNumber,
   optionalString,
   parseBody,
-} from "../../../../helpers";
+} from "@/app/api/cognito/helpers";
 
 type GroupParams = Promise<{ poolId: string; groupName: string }>;
 

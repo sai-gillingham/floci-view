@@ -5,7 +5,7 @@ import {
   DescribeUserPoolClientCommand,
   UpdateUserPoolClientCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { clientUpdateInputFromDetail, errorResponse, parseBody } from "../../../../helpers";
+import { clientUpdateInputFromDetail, errorResponse, parseBody } from "@/app/api/cognito/helpers";
 
 type ClientParams = Promise<{ poolId: string; clientId: string }>;
 

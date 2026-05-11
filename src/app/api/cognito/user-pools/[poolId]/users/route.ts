@@ -4,7 +4,7 @@ import {
   AdminCreateUserCommand,
   ListUsersCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { attributesFromBody, errorResponse, parseBody, requiredString, optionalString } from "../../../helpers";
+import { attributesFromBody, errorResponse, parseBody, requiredString, optionalString } from "@/app/api/cognito/helpers";
 
 export async function GET(
   _request: Request,

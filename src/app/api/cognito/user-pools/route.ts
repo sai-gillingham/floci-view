@@ -4,7 +4,7 @@ import {
   CreateUserPoolCommand,
   ListUserPoolsCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { createPoolInput, errorResponse, parseBody } from "../helpers";
+import { createPoolInput, errorResponse, parseBody } from "@/app/api/cognito/helpers";
 
 export async function GET() {
   try {

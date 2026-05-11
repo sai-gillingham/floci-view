@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, FormEvent, ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import {
@@ -94,8 +94,10 @@ const controlStyle: CSSProperties = {
 
 const mutedTextStyle: CSSProperties = { color: "var(--text-secondary)" };
 
-const inputClass = "h-9 w-full rounded-md border px-3 text-sm outline-none";
-const textareaClass = "min-h-20 w-full rounded-md border px-3 py-2 text-sm outline-none";
+const inputClass =
+  "h-9 w-full rounded-md border px-3 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]";
+const textareaClass =
+  "min-h-20 w-full rounded-md border px-3 py-2 text-sm outline-none focus-visible:ring-2 focus-visible:ring-[var(--accent)] focus-visible:ring-offset-2 focus-visible:ring-offset-[var(--bg-primary)]";
 const textButtonClass =
   "inline-flex h-8 items-center gap-2 rounded-md border px-3 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50";
 const iconButtonClass =
@@ -237,8 +239,10 @@ export default function CognitoPage() {
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ kind: ToastKind; message: string } | null>(null);
 
+  /** Bumps on each full pool-panel load so stale in-flight fetches cannot overwrite state after pool switch. */
+  const poolDataRequestIdRef = useRef(0);
+
   const [createPoolForm, setCreatePoolForm] = useState(initialCreatePoolForm);
-  const [poolSettingsForm, setPoolSettingsForm] = useState(initialPoolSettingsForm);
   const [userForm, setUserForm] = useState(initialUserForm);
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [groupForm, setGroupForm] = useState(initialGroupForm);
@@ -250,6 +254,32 @@ export default function CognitoPage() {
   const [editingClient, setEditingClient] = useState<string | null>(null);
   const [resourceForm, setResourceForm] = useState(initialResourceForm);
   const [editingResource, setEditingResource] = useState<string | null>(null);
+
+  const poolSettingsFromPoolDetail = useMemo(
+    () =>
+      poolDetail
+        ? {
+            name: poolDetail.Name ?? "",
+            deletionProtection: poolDetail.DeletionProtection === "ACTIVE",
+            mfaConfiguration: poolDetail.MfaConfiguration ?? "OFF",
+            autoVerifyEmail: Boolean(poolDetail.AutoVerifiedAttributes?.includes("email")),
+            autoVerifyPhone: Boolean(poolDetail.AutoVerifiedAttributes?.includes("phone_number")),
+          }
+        : initialPoolSettingsForm,
+    [poolDetail],
+  );
+
+  const poolSettingsFromPoolDetailKey = useMemo(
+    () => JSON.stringify(poolSettingsFromPoolDetail),
+    [poolSettingsFromPoolDetail],
+  );
+
+  const [poolSettingsForm, setPoolSettingsForm] = useState(initialPoolSettingsForm);
+  const poolSettingsSourceKeyRef = useRef<string | null>(null);
+  if (poolSettingsFromPoolDetailKey !== poolSettingsSourceKeyRef.current) {
+    poolSettingsSourceKeyRef.current = poolSettingsFromPoolDetailKey;
+    setPoolSettingsForm(poolSettingsFromPoolDetail);
+  }
 
   const selectedPoolPath = selectedPool ? encodePath(selectedPool) : "";
 
@@ -276,58 +306,67 @@ export default function CognitoPage() {
     }
   }, [setError]);
 
-  const fetchPoolDetail = useCallback(async (poolId: string) => {
+  const fetchPoolDetail = useCallback(async (poolId: string, requestId?: number) => {
     const data = await responseJson<{ userPool?: UserPoolDetail | null }>(
       await fetch(`/api/cognito/user-pools/${encodePath(poolId)}`),
     );
+    if (requestId !== undefined && requestId !== poolDataRequestIdRef.current) return;
     setPoolDetail(data.userPool ?? null);
   }, []);
 
-  const fetchUsers = useCallback(async (poolId: string) => {
+  const fetchUsers = useCallback(async (poolId: string, requestId?: number) => {
     const data = await responseJson<{ users?: CognitoUser[] }>(
       await fetch(`/api/cognito/user-pools/${encodePath(poolId)}/users`),
     );
+    if (requestId !== undefined && requestId !== poolDataRequestIdRef.current) return;
     setUsers(data.users ?? []);
   }, []);
 
-  const fetchGroups = useCallback(async (poolId: string) => {
+  const fetchGroups = useCallback(async (poolId: string, requestId?: number) => {
     const data = await responseJson<{ groups?: CognitoGroup[] }>(
       await fetch(`/api/cognito/user-pools/${encodePath(poolId)}/groups`),
     );
+    if (requestId !== undefined && requestId !== poolDataRequestIdRef.current) return;
     setGroups(data.groups ?? []);
   }, []);
 
-  const fetchClients = useCallback(async (poolId: string) => {
+  const fetchClients = useCallback(async (poolId: string, requestId?: number) => {
     const data = await responseJson<{ clients?: UserPoolClient[] }>(
       await fetch(`/api/cognito/user-pools/${encodePath(poolId)}/clients`),
     );
+    if (requestId !== undefined && requestId !== poolDataRequestIdRef.current) return;
     setClients(data.clients ?? []);
   }, []);
 
-  const fetchResourceServers = useCallback(async (poolId: string) => {
+  const fetchResourceServers = useCallback(async (poolId: string, requestId?: number) => {
     const data = await responseJson<{ resourceServers?: ResourceServer[] }>(
       await fetch(`/api/cognito/user-pools/${encodePath(poolId)}/resource-servers`),
     );
+    if (requestId !== undefined && requestId !== poolDataRequestIdRef.current) return;
     setResourceServers(data.resourceServers ?? []);
   }, []);
 
   const fetchSelectedPoolData = useCallback(
     async (poolId: string) => {
+      const requestId = ++poolDataRequestIdRef.current;
       setLoadingPanel(true);
       setToast(null);
 
       try {
         await Promise.all([
-          fetchPoolDetail(poolId),
-          fetchUsers(poolId),
-          fetchGroups(poolId),
-          fetchClients(poolId),
-          fetchResourceServers(poolId),
+          fetchPoolDetail(poolId, requestId),
+          fetchUsers(poolId, requestId),
+          fetchGroups(poolId, requestId),
+          fetchClients(poolId, requestId),
+          fetchResourceServers(poolId, requestId),
         ]);
       } catch (error) {
+        if (requestId !== poolDataRequestIdRef.current) return;
         setError(error instanceof Error ? error.message : String(error));
       } finally {
-        setLoadingPanel(false);
+        if (requestId === poolDataRequestIdRef.current) {
+          setLoadingPanel(false);
+        }
       }
     },
     [fetchClients, fetchGroups, fetchPoolDetail, fetchResourceServers, fetchUsers, setError],
@@ -356,6 +395,18 @@ export default function CognitoPage() {
   }, [refreshUserPools]);
 
   useEffect(() => {
+    setSelectedGroup(null);
+    setGroupMembers([]);
+    setMemberInput("");
+    setEditingUser(null);
+    setEditingGroup(null);
+    setEditingClient(null);
+    setEditingResource(null);
+    setUserForm(initialUserForm);
+    setGroupForm(initialGroupForm);
+    setClientForm(initialClientForm);
+    setResourceForm(initialResourceForm);
+
     if (!selectedPool) return;
 
     const timer = setTimeout(() => {
@@ -364,20 +415,9 @@ export default function CognitoPage() {
     return () => clearTimeout(timer);
   }, [fetchSelectedPoolData, selectedPool]);
 
-  useEffect(() => {
-    if (!poolDetail) return;
-
-    setPoolSettingsForm({
-      name: poolDetail.Name ?? "",
-      deletionProtection: poolDetail.DeletionProtection === "ACTIVE",
-      mfaConfiguration: poolDetail.MfaConfiguration ?? "OFF",
-      autoVerifyEmail: Boolean(poolDetail.AutoVerifiedAttributes?.includes("email")),
-      autoVerifyPhone: Boolean(poolDetail.AutoVerifiedAttributes?.includes("phone_number")),
-    });
-  }, [poolDetail]);
-
   const runAction = useCallback(
     async (action: () => Promise<void>) => {
+      if (busy) return;
       setBusy(true);
       setToast(null);
 
@@ -389,7 +429,7 @@ export default function CognitoPage() {
         setBusy(false);
       }
     },
-    [setError],
+    [busy, setError],
   );
 
   const createPool = (event: FormEvent) => {
@@ -1088,14 +1128,15 @@ export default function CognitoPage() {
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex justify-end gap-2">
-                            <IconAction label="Edit member" onClick={() => editUser(user)} icon={Edit3} />
-                            <IconAction label="Reset password" onClick={() => resetPassword(user)} icon={KeyRound} />
+                            <IconAction label="Edit member" onClick={() => editUser(user)} icon={Edit3} disabled={busy} />
+                            <IconAction label="Reset password" onClick={() => resetPassword(user)} icon={KeyRound} disabled={busy} />
                             <IconAction
                               label={user.Enabled === false ? "Enable member" : "Disable member"}
                               onClick={() => updateUserEnabled(user, user.Enabled === false)}
                               icon={user.Enabled === false ? CheckCircle : Ban}
+                              disabled={busy}
                             />
-                            <IconAction label="Delete member" onClick={() => deleteUser(user)} icon={Trash2} danger />
+                            <IconAction label="Delete member" onClick={() => deleteUser(user)} icon={Trash2} danger disabled={busy} />
                           </div>
                         </td>
                       </tr>
@@ -1187,8 +1228,8 @@ export default function CognitoPage() {
                           </td>
                           <td className="px-4 py-2">
                             <div className="flex justify-end gap-2">
-                              <IconAction label="Edit group" onClick={() => editGroup(group)} icon={Edit3} />
-                              <IconAction label="Delete group" onClick={() => deleteGroup(group)} icon={Trash2} danger />
+                              <IconAction label="Edit group" onClick={() => editGroup(group)} icon={Edit3} disabled={busy} />
+                              <IconAction label="Delete group" onClick={() => deleteGroup(group)} icon={Trash2} danger disabled={busy} />
                             </div>
                           </td>
                         </tr>
@@ -1432,8 +1473,8 @@ export default function CognitoPage() {
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex justify-end gap-2">
-                            <IconAction label="Edit client" onClick={() => editClient(client)} icon={Edit3} />
-                            <IconAction label="Delete client" onClick={() => deleteClient(client)} icon={Trash2} danger />
+                            <IconAction label="Edit client" onClick={() => editClient(client)} icon={Edit3} disabled={busy} />
+                            <IconAction label="Delete client" onClick={() => deleteClient(client)} icon={Trash2} danger disabled={busy} />
                           </div>
                         </td>
                       </tr>
@@ -1504,8 +1545,8 @@ export default function CognitoPage() {
                         </td>
                         <td className="px-4 py-2">
                           <div className="flex justify-end gap-2">
-                            <IconAction label="Edit resource server" onClick={() => editResourceServer(server)} icon={Edit3} />
-                            <IconAction label="Delete resource server" onClick={() => deleteResourceServer(server)} icon={Trash2} danger />
+                            <IconAction label="Edit resource server" onClick={() => editResourceServer(server)} icon={Edit3} disabled={busy} />
+                            <IconAction label="Delete resource server" onClick={() => deleteResourceServer(server)} icon={Trash2} danger disabled={busy} />
                           </div>
                         </td>
                       </tr>
@@ -1659,11 +1700,13 @@ function IconAction({
   onClick,
   icon: Icon,
   danger = false,
+  disabled = false,
 }: {
   label: string;
   onClick: () => void;
   icon: typeof Edit3;
   danger?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -1671,6 +1714,7 @@ function IconAction({
       aria-label={label}
       title={label}
       onClick={onClick}
+      disabled={disabled}
       className={iconButtonClass}
       style={{ ...controlStyle, color: danger ? "var(--error)" : "var(--text-secondary)" }}
     >

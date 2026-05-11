@@ -5,7 +5,7 @@ import {
   AdminRemoveUserFromGroupCommand,
   ListUsersInGroupCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
-import { errorResponse, parseBody, requiredString } from "../../../../../helpers";
+import { errorResponse, parseBody, requiredString } from "@/app/api/cognito/helpers";
 
 type GroupParams = Promise<{ poolId: string; groupName: string }>;
 
