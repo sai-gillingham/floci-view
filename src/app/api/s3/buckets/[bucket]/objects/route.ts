@@ -390,10 +390,10 @@ export async function PATCH(request: Request, { params }: RouteContext) {
 
     const existing = await s3Client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
 
-    const mergedMetadata = {
-      ...(existing.Metadata ?? {}),
-      ...metadataFromUnknown(body.metadata),
-    };
+    const mergedMetadata =
+      body.metadata === undefined
+        ? { ...(existing.Metadata ?? {}) }
+        : metadataFromUnknown(body.metadata);
 
     await s3Client.send(
       new CopyObjectCommand({

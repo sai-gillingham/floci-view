@@ -430,7 +430,7 @@ describe("PATCH /api/s3/buckets/[bucket]/objects", () => {
     });
   });
 
-  it("merges existing user metadata with incoming metadata on PATCH", async () => {
+  it("replaces user metadata when body.metadata is provided", async () => {
     s3.on(HeadObjectCommand).resolves({
       ContentType: "text/plain",
       Metadata: { keep: "yes", overlap: "old" },
@@ -450,7 +450,6 @@ describe("PATCH /api/s3/buckets/[bucket]/objects", () => {
 
     expect(res.status).toBe(200);
     expect(s3.commandCalls(CopyObjectCommand)[0].args[0].input.Metadata).toEqual({
-      keep: "yes",
       overlap: "new",
     });
   });
@@ -460,6 +459,7 @@ describe("PATCH /api/s3/buckets/[bucket]/objects", () => {
       ContentType: "application/json",
       ContentEncoding: "gzip",
       ContentLanguage: "en-US",
+      Metadata: { section: "intro" },
     });
     s3.on(CopyObjectCommand).resolves({});
 
@@ -473,6 +473,7 @@ describe("PATCH /api/s3/buckets/[bucket]/objects", () => {
 
     expect(res.status).toBe(200);
     const input = s3.commandCalls(CopyObjectCommand)[0].args[0].input;
+    expect(input.Metadata).toEqual({ section: "intro" });
     expect(input.ContentEncoding).toBe("gzip");
     expect(input.ContentLanguage).toBe("en-US");
   });

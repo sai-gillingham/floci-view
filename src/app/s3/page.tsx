@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChangeEvent, CSSProperties } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PageHeader } from "@/components/page-header";
 import {
   Bell,
@@ -220,6 +220,9 @@ export default function S3Page() {
   const [eventBridgeEnabled, setEventBridgeEnabled] = useState(false);
   const [loadingTriggers, setLoadingTriggers] = useState(false);
 
+  const objectsFetchGenerationRef = useRef(0);
+  const triggersFetchGenerationRef = useRef(0);
+
   const visibleObjects = useMemo(
     () => objects.filter((object) => object.Key !== currentPrefix),
     [currentPrefix, objects],
@@ -247,6 +250,7 @@ export default function S3Page() {
 
   const fetchObjects = useCallback(
     async (bucket: string, prefix: string) => {
+      const generation = ++objectsFetchGenerationRef.current;
       setLoadingObjects(true);
       setToast(null);
 
@@ -256,14 +260,19 @@ export default function S3Page() {
           await fetch(`/api/s3/buckets/${encodeURIComponent(bucket)}?${params.toString()}`),
         );
 
+        if (generation !== objectsFetchGenerationRef.current) return;
+
         setObjects(data.objects ?? []);
         setPrefixes(data.prefixes ?? []);
       } catch (error) {
+        if (generation !== objectsFetchGenerationRef.current) return;
         setError(error instanceof Error ? error.message : String(error));
         setObjects([]);
         setPrefixes([]);
       } finally {
-        setLoadingObjects(false);
+        if (generation === objectsFetchGenerationRef.current) {
+          setLoadingObjects(false);
+        }
       }
     },
     [setError],
@@ -271,6 +280,7 @@ export default function S3Page() {
 
   const fetchTriggers = useCallback(
     async (bucket: string) => {
+      const generation = ++triggersFetchGenerationRef.current;
       setLoadingTriggers(true);
 
       try {
@@ -278,6 +288,8 @@ export default function S3Page() {
           triggers?: Array<Partial<TriggerConfiguration>>;
           eventBridgeEnabled?: boolean;
         }>(await fetch(`/api/s3/buckets/${encodeURIComponent(bucket)}/notifications`));
+
+        if (generation !== triggersFetchGenerationRef.current) return;
 
         setTriggers(
           (data.triggers ?? []).map((trigger) => ({
@@ -291,15 +303,30 @@ export default function S3Page() {
         );
         setEventBridgeEnabled(Boolean(data.eventBridgeEnabled));
       } catch (error) {
+        if (generation !== triggersFetchGenerationRef.current) return;
         setError(error instanceof Error ? error.message : String(error));
         setTriggers([]);
         setEventBridgeEnabled(false);
       } finally {
-        setLoadingTriggers(false);
+        if (generation === triggersFetchGenerationRef.current) {
+          setLoadingTriggers(false);
+        }
       }
     },
     [setError],
   );
+
+  const clearBucketContextUi = useCallback(() => {
+    setObjectDetail(null);
+    setMetadataRows([]);
+    setMetadataContentType("");
+    setMetadataCacheControl("");
+    setMetadataDisposition("");
+    setMoveSourcePrefix("");
+    setMoveTargetPrefix("");
+    setTriggers([]);
+    setEventBridgeEnabled(false);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -322,15 +349,6 @@ export default function S3Page() {
   useEffect(() => {
     if (!selectedBucket) return;
 
-    setObjectDetail(null);
-    setMetadataRows([]);
-    setMetadataContentType("");
-    setMetadataCacheControl("");
-    setMetadataDisposition("");
-    setMoveSourcePrefix("");
-    setMoveTargetPrefix("");
-    setTriggers([]);
-    setEventBridgeEnabled(false);
     void fetchTriggers(selectedBucket);
   }, [fetchTriggers, selectedBucket]);
 
@@ -356,6 +374,7 @@ export default function S3Page() {
         }),
       );
       setBucketName("");
+      clearBucketContextUi();
       setSelectedBucket(name);
       setCurrentPrefix("");
       await fetchBuckets();
@@ -384,7 +403,7 @@ export default function S3Page() {
         setObjects([]);
         setPrefixes([]);
         setCurrentPrefix("");
-        setObjectDetail(null);
+        clearBucketContextUi();
       }
       await fetchBuckets();
       setSuccess(`Deleted bucket ${bucket}`);
@@ -779,6 +798,7 @@ export default function S3Page() {
                 <button
                   type="button"
                   onClick={() => {
+                    clearBucketContextUi();
                     setSelectedBucket(bucket.Name);
                     setCurrentPrefix("");
                   }}

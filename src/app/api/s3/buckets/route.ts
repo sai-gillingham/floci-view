@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { s3Client } from "@/lib/aws-clients";
 import { CreateBucketCommand, ListBucketsCommand } from "@aws-sdk/client-s3";
-import { errorResponse, MalformedJsonBodyError, readJsonBody, stringFromUnknown } from "../helpers";
+import { errorResponse, MalformedJsonBodyError, readJsonBody, stringFromUnknown } from "@/app/api/s3/helpers";
 
 export async function GET() {
   try {

@@ -171,12 +171,22 @@ export async function PUT(request: Request, { params }: RouteContext) {
 
   try {
     const body = await readJsonBody<{ triggers?: unknown; eventBridgeEnabled?: unknown }>(request);
-    const triggers = Array.isArray(body.triggers)
-      ? body.triggers.flatMap((trigger) => {
-          const normalized = normalizeTrigger(trigger);
-          return normalized ? [normalized] : [];
-        })
-      : [];
+
+    if (body.triggers !== undefined && !Array.isArray(body.triggers)) {
+      return NextResponse.json({ error: "triggers must be an array" }, { status: 400 });
+    }
+
+    const triggersInput = body.triggers === undefined ? [] : body.triggers;
+    const triggers: TriggerConfiguration[] = [];
+
+    for (let index = 0; index < triggersInput.length; index++) {
+      const normalized = normalizeTrigger(triggersInput[index]);
+      if (!normalized) {
+        return NextResponse.json({ error: `Invalid trigger at index ${index}` }, { status: 400 });
+      }
+      triggers.push(normalized);
+    }
+
     const eventBridgeEnabled = body.eventBridgeEnabled === true;
 
     await s3Client.send(

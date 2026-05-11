@@ -42,7 +42,7 @@ async function listKeys(bucket: string, prefix: string) {
 
 async function deleteKeys(bucket: string, keys: string[]) {
   for (const keysChunk of chunkArray(keys, 1000)) {
-    await s3Client.send(
+    const response = await s3Client.send(
       new DeleteObjectsCommand({
         Bucket: bucket,
         Delete: {
@@ -51,6 +51,19 @@ async function deleteKeys(bucket: string, keys: string[]) {
         },
       }),
     );
+
+    const failures = response.Errors ?? [];
+    if (failures.length > 0) {
+      const detail = failures
+        .map((entry) => {
+          const key = entry.Key ?? "(unknown key)";
+          const code = entry.Code ?? "Unknown";
+          const message = entry.Message ?? "";
+          return `${key}: ${code}${message ? ` (${message})` : ""}`;
+        })
+        .join("; ");
+      throw new Error(`S3 DeleteObjects partial failure for bucket "${bucket}": ${detail}`);
+    }
   }
 }
 

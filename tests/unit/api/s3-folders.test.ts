@@ -231,6 +231,31 @@ describe("POST /api/s3/buckets/[bucket]/folders", () => {
     expect(res.status).toBe(500);
     expect((await res.json()).error).toBe("disk");
   });
+
+  it("returns 500 when move reports DeleteObjects per-key errors", async () => {
+    s3.on(ListObjectsV2Command).resolves({ Contents: [{ Key: "old/a.txt" }] });
+    s3.on(CopyObjectCommand).resolves({});
+    s3.on(DeleteObjectsCommand).resolves({
+      Errors: [{ Key: "old/a.txt", Code: "InternalError", Message: "oops" }],
+    });
+
+    const res = await POST(
+      new Request("http://test/api/s3/buckets/assets/folders", {
+        method: "POST",
+        body: JSON.stringify({
+          action: "move",
+          sourcePrefix: "old/",
+          targetPrefix: "new/",
+        }),
+      }),
+      context,
+    );
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toContain("partial failure");
+    expect(body.error).toContain("old/a.txt");
+  });
 });
 
 describe("DELETE /api/s3/buckets/[bucket]/folders", () => {
@@ -289,6 +314,25 @@ describe("DELETE /api/s3/buckets/[bucket]/folders", () => {
     expect(res.status).toBe(400);
     expect(await res.json()).toEqual({ error: "prefix is required" });
     expect(s3.commandCalls(DeleteObjectsCommand)).toHaveLength(0);
+  });
+
+  it("returns 500 when DeleteObjects reports per-key errors", async () => {
+    s3.on(ListObjectsV2Command).resolves({ Contents: [{ Key: "x/y" }] });
+    s3.on(DeleteObjectsCommand).resolves({
+      Errors: [{ Key: "x/y", Code: "AccessDenied", Message: "denied" }],
+    });
+
+    const res = await DELETE_FOLDER(
+      new NextRequest("http://test/api/s3/buckets/assets/folders?prefix=x/"),
+      context,
+    );
+
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error).toContain("partial failure");
+    expect(body.error).toContain("assets");
+    expect(body.error).toContain("x/y");
+    expect(body.error).toContain("AccessDenied");
   });
 
   it("returns 500 when deletion fails", async () => {

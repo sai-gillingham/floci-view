@@ -137,6 +137,20 @@ describe("PUT /api/s3/buckets/[bucket]/notifications", () => {
     );
 
     expect(res.status).toBe(200);
+    expect(await res.json()).toEqual({
+      ok: true,
+      eventBridgeEnabled: true,
+      triggers: [
+        {
+          id: "images",
+          destinationType: "Queue",
+          destinationArn: "arn:aws:sqs:us-east-1:000000000000:images",
+          eventTypes: ["s3:ObjectCreated:*", "s3:ObjectRemoved:Delete"],
+          prefixFilter: "images/",
+          suffixFilter: ".jpg",
+        },
+      ],
+    });
     expect(s3.commandCalls(PutBucketNotificationConfigurationCommand)[0].args[0].input).toEqual({
       Bucket: "assets",
       NotificationConfiguration: {
@@ -185,11 +199,6 @@ describe("PUT /api/s3/buckets/[bucket]/notifications", () => {
               eventTypes: ["s3:ObjectRestore:*"],
               prefixFilter: "archives/",
             },
-            {
-              destinationType: "Queue",
-              destinationArn: "",
-              eventTypes: ["s3:ObjectCreated:*"],
-            },
           ],
         }),
       }),
@@ -229,29 +238,36 @@ describe("PUT /api/s3/buckets/[bucket]/notifications", () => {
     });
   });
 
-  it("ignores triggers that fail validation", async () => {
-    s3.on(PutBucketNotificationConfigurationCommand).resolves({});
+  it("returns 400 when triggers is not an array", async () => {
+    const res = await PUT(
+      new Request("http://test/api/s3/buckets/assets/notifications", {
+        method: "PUT",
+        body: JSON.stringify({ triggers: "nope" }),
+      }),
+      context,
+    );
 
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "triggers must be an array" });
+    expect(s3.commandCalls(PutBucketNotificationConfigurationCommand)).toHaveLength(0);
+  });
+
+  it("returns 400 when a trigger fails validation", async () => {
     const res = await PUT(
       new Request("http://test/api/s3/buckets/assets/notifications", {
         method: "PUT",
         body: JSON.stringify({
           triggers: [
-            null,
-            {
-              destinationType: "Queue",
-              destinationArn: "arn:aws:sqs:us-east-1:000000000000:q",
-              eventTypes: [],
-            },
-            {
-              destinationType: "NotQueue",
-              destinationArn: "arn:aws:sqs:us-east-1:000000000000:q",
-              eventTypes: ["s3:ObjectCreated:*"],
-            },
             {
               destinationType: "Queue",
               destinationArn: "arn:aws:sqs:us-east-1:000000000000:ok",
               eventTypes: ["s3:ObjectCreated:Copy"],
+            },
+            null,
+            {
+              destinationType: "Queue",
+              destinationArn: "arn:aws:sqs:us-east-1:000000000000:also-ok",
+              eventTypes: ["s3:ObjectCreated:Put"],
             },
           ],
         }),
@@ -259,22 +275,9 @@ describe("PUT /api/s3/buckets/[bucket]/notifications", () => {
       context,
     );
 
-    expect(res.status).toBe(200);
-    expect(s3.commandCalls(PutBucketNotificationConfigurationCommand)[0].args[0].input).toEqual({
-      Bucket: "assets",
-      NotificationConfiguration: {
-        QueueConfigurations: [
-          {
-            QueueArn: "arn:aws:sqs:us-east-1:000000000000:ok",
-            Events: ["s3:ObjectCreated:Copy"],
-            Id: undefined,
-            Filter: undefined,
-          },
-        ],
-        TopicConfigurations: [],
-        LambdaFunctionConfigurations: [],
-      },
-    });
+    expect(res.status).toBe(400);
+    expect(await res.json()).toEqual({ error: "Invalid trigger at index 1" });
+    expect(s3.commandCalls(PutBucketNotificationConfigurationCommand)).toHaveLength(0);
   });
 
   it("treats a missing triggers array as empty", async () => {
