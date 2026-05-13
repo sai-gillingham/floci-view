@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Activity,
+  GitBranch,
   HardDrive,
   Home,
   MessageSquare,
@@ -15,6 +16,7 @@ const services = [
   { name: "Dashboard", href: "/", icon: Home },
   { name: "S3", href: "/s3", icon: HardDrive, category: "Storage" },
   { name: "SQS", href: "/sqs", icon: MessageSquare, category: "Messaging" },
+  { name: "Step Functions", href: "/stepfunctions", icon: GitBranch, category: "Orchestration" },
   { name: "CloudWatch", href: "/cloudwatch", icon: Activity, category: "Monitoring" },
   { name: "Cognito", href: "/cognito", icon: Users, category: "Security" },
 ];

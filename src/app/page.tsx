@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { StatusBadge } from "@/components/status-badge";
 import { PageHeader } from "@/components/page-header";
-import { HardDrive, MessageSquare, Activity, Users, RefreshCw } from "lucide-react";
+import { HardDrive, MessageSquare, Activity, Users, RefreshCw, GitBranch } from "lucide-react";
 
 interface ServiceStatus {
   service: string;
@@ -15,6 +15,7 @@ interface ServiceStatus {
 const serviceIcons: Record<string, typeof HardDrive> = {
   S3: HardDrive,
   SQS: MessageSquare,
+  "Step Functions": GitBranch,
   CloudWatch: Activity,
   Cognito: Users,
 };
@@ -22,6 +23,7 @@ const serviceIcons: Record<string, typeof HardDrive> = {
 const serviceHrefs: Record<string, string> = {
   S3: "/s3",
   SQS: "/sqs",
+  "Step Functions": "/stepfunctions",
   CloudWatch: "/cloudwatch",
   Cognito: "/cognito",
 };

@@ -3,10 +3,12 @@ import { s3Client } from "@/lib/aws-clients";
 import { sqsClient } from "@/lib/aws-clients";
 import { cloudwatchLogsClient } from "@/lib/aws-clients";
 import { cognitoClient } from "@/lib/aws-clients";
+import { sfnClient } from "@/lib/aws-clients";
 import { ListBucketsCommand } from "@aws-sdk/client-s3";
 import { ListQueuesCommand } from "@aws-sdk/client-sqs";
 import { DescribeLogGroupsCommand } from "@aws-sdk/client-cloudwatch-logs";
 import { ListUserPoolsCommand } from "@aws-sdk/client-cognito-identity-provider";
+import { ListStateMachinesCommand } from "@aws-sdk/client-sfn";
 
 export async function GET() {
   const probes = await Promise.allSettled([
@@ -21,6 +23,12 @@ export async function GET() {
       status: "available" as const,
       count: r.QueueUrls?.length ?? 0,
       label: "queues",
+    })),
+    sfnClient.send(new ListStateMachinesCommand({ maxResults: 1000 })).then((r) => ({
+      service: "Step Functions",
+      status: "available" as const,
+      count: r.stateMachines?.length ?? 0,
+      label: "state machines",
     })),
     cloudwatchLogsClient.send(new DescribeLogGroupsCommand({})).then((r) => ({
       service: "CloudWatch",
@@ -37,8 +45,8 @@ export async function GET() {
   ]);
 
   const services = probes.map((result, i) => {
-    const names = ["S3", "SQS", "CloudWatch", "Cognito"];
-    const labels = ["buckets", "queues", "log groups", "user pools"];
+    const names = ["S3", "SQS", "Step Functions", "CloudWatch", "Cognito"];
+    const labels = ["buckets", "queues", "state machines", "log groups", "user pools"];
     if (result.status === "fulfilled") {
       return result.value;
     }

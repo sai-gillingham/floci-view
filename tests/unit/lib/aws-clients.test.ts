@@ -4,13 +4,15 @@ import {
   cloudwatchLogsClient,
   cognitoClient,
   s3Client,
+  sfnClient,
   sqsClient,
 } from "@/lib/aws-clients";
 
 describe("aws-clients", () => {
-  it("exports all 5 SDK clients", () => {
+  it("exports all 6 SDK clients", () => {
     expect(s3Client).toBeDefined();
     expect(sqsClient).toBeDefined();
+    expect(sfnClient).toBeDefined();
     expect(cloudwatchClient).toBeDefined();
     expect(cloudwatchLogsClient).toBeDefined();
     expect(cognitoClient).toBeDefined();
@@ -27,7 +29,7 @@ describe("aws-clients", () => {
   });
 
   it("honours FLOCI_ENDPOINT for all clients", async () => {
-    for (const client of [s3Client, sqsClient, cloudwatchClient, cloudwatchLogsClient, cognitoClient]) {
+    for (const client of [s3Client, sqsClient, sfnClient, cloudwatchClient, cloudwatchLogsClient, cognitoClient]) {
       const endpoint = await client.config.endpoint!();
       expect(endpoint.hostname).toBe("floci.test");
       expect(endpoint.port).toBe(4566);

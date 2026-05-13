@@ -7,6 +7,7 @@ A web-based AWS Console for [Floci](https://github.com/hectorvent/floci), built 
 - **Dashboard** — Real-time service status overview with resource counts
 - **S3** — Bucket list, object browser with folder navigation
 - **SQS** — Queue list and management
+- **Step Functions** — State machine CRUD, execution launch, live graph, event log, and output/result viewer
 - **CloudWatch** — Log groups, streams, and event viewer
 - **Cognito** — User pool list, pool details, and user management
 

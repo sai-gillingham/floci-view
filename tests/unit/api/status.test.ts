@@ -10,10 +10,12 @@ import {
   CognitoIdentityProviderClient,
   ListUserPoolsCommand,
 } from "@aws-sdk/client-cognito-identity-provider";
+import { ListStateMachinesCommand, SFNClient } from "@aws-sdk/client-sfn";
 import { GET } from "@/app/api/status/route";
 
 const s3 = mockClient(S3Client);
 const sqs = mockClient(SQSClient);
+const sfn = mockClient(SFNClient);
 const cwl = mockClient(CloudWatchLogsClient);
 const cognito = mockClient(CognitoIdentityProviderClient);
 
@@ -21,13 +23,17 @@ describe("GET /api/status", () => {
   beforeEach(() => {
     s3.reset();
     sqs.reset();
+    sfn.reset();
     cwl.reset();
     cognito.reset();
   });
 
-  it("returns four service entries with counts when all probes succeed", async () => {
+  it("returns five service entries with counts when all probes succeed", async () => {
     s3.on(ListBucketsCommand).resolves({ Buckets: [{ Name: "a" }, { Name: "b" }] });
     sqs.on(ListQueuesCommand).resolves({ QueueUrls: ["q"] });
+    sfn.on(ListStateMachinesCommand).resolves({
+      stateMachines: [{ name: "flow-a", stateMachineArn: "arn:aws:states:us-east-1:000000000000:stateMachine:flow-a" }],
+    });
     cwl.on(DescribeLogGroupsCommand).resolves({
       logGroups: [{ logGroupName: "/x" }, { logGroupName: "/y" }, { logGroupName: "/z" }],
     });
@@ -36,13 +42,18 @@ describe("GET /api/status", () => {
     const res = await GET();
     expect(res.status).toBe(200);
     const body = await res.json();
-    expect(body.services).toHaveLength(4);
+    expect(body.services).toHaveLength(5);
 
     const byName = Object.fromEntries(
       body.services.map((s: { service: string }) => [s.service, s]),
     );
     expect(byName.S3).toMatchObject({ status: "available", count: 2, label: "buckets" });
     expect(byName.SQS).toMatchObject({ status: "available", count: 1, label: "queues" });
+    expect(byName["Step Functions"]).toMatchObject({
+      status: "available",
+      count: 1,
+      label: "state machines",
+    });
     expect(byName.CloudWatch).toMatchObject({
       status: "available",
       count: 3,
@@ -58,6 +69,7 @@ describe("GET /api/status", () => {
   it("isolates a single failure to its own service", async () => {
     s3.on(ListBucketsCommand).resolves({ Buckets: [] });
     sqs.on(ListQueuesCommand).rejects(new Error("sqs down"));
+    sfn.on(ListStateMachinesCommand).resolves({ stateMachines: [] });
     cwl.on(DescribeLogGroupsCommand).resolves({ logGroups: [] });
     cognito.on(ListUserPoolsCommand).resolves({ UserPools: [] });
 
@@ -70,9 +82,10 @@ describe("GET /api/status", () => {
     expect(s3Entry).toMatchObject({ status: "available", count: 0 });
   });
 
-  it("preserves order: S3, SQS, CloudWatch, Cognito", async () => {
+  it("preserves order: S3, SQS, Step Functions, CloudWatch, Cognito", async () => {
     s3.on(ListBucketsCommand).resolves({});
     sqs.on(ListQueuesCommand).resolves({});
+    sfn.on(ListStateMachinesCommand).resolves({});
     cwl.on(DescribeLogGroupsCommand).resolves({});
     cognito.on(ListUserPoolsCommand).resolves({});
     const res = await GET();
@@ -81,6 +94,7 @@ describe("GET /api/status", () => {
     expect(body.services.map((s: { service: string }) => s.service)).toEqual([
       "S3",
       "SQS",
+      "Step Functions",
       "CloudWatch",
       "Cognito",
     ]);
