@@ -247,6 +247,10 @@ export default function CognitoPage() {
   /** Bumps on each full pool-panel load so stale in-flight fetches cannot overwrite state after pool switch. */
   const poolDataRequestIdRef = useRef(0);
 
+  const selectedPoolRef = useRef<string | null>(null);
+  /** Clears per-client clipboard feedback timers when switching pools or unmounting. */
+  const copiedTimeoutsRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+
   const [createPoolForm, setCreatePoolForm] = useState(initialCreatePoolForm);
   const [userForm, setUserForm] = useState(initialUserForm);
   const [editingUser, setEditingUser] = useState<string | null>(null);
@@ -258,8 +262,9 @@ export default function CognitoPage() {
   const [clientForm, setClientForm] = useState(initialClientForm);
   const [editingClient, setEditingClient] = useState<string | null>(null);
   const [revealedSecrets, setRevealedSecrets] = useState<Record<string, string>>({});
-  const [revealingClientId, setRevealingClientId] = useState<string | null>(null);
-  const [copiedClientId, setCopiedClientId] = useState<string | null>(null);
+  /** Ref-count concurrent reveal requests per client so overlapping completions clear loading correctly. */
+  const [revealingInflightByClientId, setRevealingInflightByClientId] = useState<Record<string, number>>({});
+  const [copiedClientIds, setCopiedClientIds] = useState<Set<string>>(() => new Set());
   const [resourceForm, setResourceForm] = useState(initialResourceForm);
   const [editingResource, setEditingResource] = useState<string | null>(null);
 
@@ -291,6 +296,18 @@ export default function CognitoPage() {
       setPoolSettingsForm(poolSettingsFromPoolDetail);
     }
   }, [poolSettingsFromPoolDetail, poolSettingsFromPoolDetailKey]);
+
+  useEffect(() => {
+    selectedPoolRef.current = selectedPool;
+  }, [selectedPool]);
+
+  useEffect(() => {
+    const timeoutsMap = copiedTimeoutsRef.current;
+    return () => {
+      for (const timeout of timeoutsMap.values()) clearTimeout(timeout);
+      timeoutsMap.clear();
+    };
+  }, []);
 
   const selectedPoolPath = selectedPool ? encodePath(selectedPool) : "";
 
@@ -418,8 +435,10 @@ export default function CognitoPage() {
     setClientForm(initialClientForm);
     setResourceForm(initialResourceForm);
     setRevealedSecrets({});
-    setRevealingClientId(null);
-    setCopiedClientId(null);
+    setRevealingInflightByClientId({});
+    for (const timeout of copiedTimeoutsRef.current.values()) clearTimeout(timeout);
+    copiedTimeoutsRef.current.clear();
+    setCopiedClientIds(new Set());
 
     if (!selectedPool) return;
 
@@ -790,7 +809,8 @@ export default function CognitoPage() {
   const toggleClientSecret = useCallback(
     async (client: UserPoolClient) => {
       const clientId = client.ClientId;
-      if (!selectedPool || !clientId) return;
+      const poolIdAtStart = selectedPoolRef.current;
+      if (!poolIdAtStart || !clientId) return;
 
       if (revealedSecrets[clientId] !== undefined) {
         setRevealedSecrets((current) => {
@@ -801,38 +821,72 @@ export default function CognitoPage() {
         return;
       }
 
-      setRevealingClientId(clientId);
+      setRevealingInflightByClientId((current) => ({
+        ...current,
+        [clientId]: (current[clientId] ?? 0) + 1,
+      }));
       setToast(null);
       try {
         const data = await responseJson<{ client?: UserPoolClient | null }>(
-          await fetch(`/api/cognito/user-pools/${encodePath(selectedPool)}/clients/${encodePath(clientId)}`),
+          await fetch(`/api/cognito/user-pools/${encodePath(poolIdAtStart)}/clients/${encodePath(clientId)}`),
         );
+        if (selectedPoolRef.current !== poolIdAtStart) return;
+
         const secret = data.client?.ClientSecret;
         if (!secret) {
           setError("This client has no secret (created without GenerateSecret).");
           return;
         }
-        setRevealedSecrets((current) => ({ ...current, [clientId]: secret }));
+        setRevealedSecrets((current) => {
+          if (selectedPoolRef.current !== poolIdAtStart) return current;
+          return { ...current, [clientId]: secret };
+        });
       } catch (error) {
-        setError(error instanceof Error ? error.message : String(error));
+        if (selectedPoolRef.current === poolIdAtStart) {
+          setError(error instanceof Error ? error.message : String(error));
+        }
       } finally {
-        setRevealingClientId(null);
+        setRevealingInflightByClientId((current) => {
+          const next = { ...current };
+          const n = (next[clientId] ?? 0) - 1;
+          if (n <= 0) delete next[clientId];
+          else next[clientId] = n;
+          return next;
+        });
       }
     },
-    [revealedSecrets, selectedPool, setError],
+    [revealedSecrets, setError],
   );
 
   const copyClientSecret = useCallback(
     async (clientId: string, secret: string) => {
+      const poolIdAtStart = selectedPoolRef.current;
+      if (!poolIdAtStart) return;
+
       try {
         await navigator.clipboard.writeText(secret);
-        setCopiedClientId(clientId);
-        setTimeout(
-          () => setCopiedClientId((current) => (current === clientId ? null : current)),
-          2000,
+        if (selectedPoolRef.current !== poolIdAtStart) return;
+
+        setCopiedClientIds((prev) => new Set(prev).add(clientId));
+
+        const existing = copiedTimeoutsRef.current.get(clientId);
+        if (existing !== undefined) clearTimeout(existing);
+
+        copiedTimeoutsRef.current.set(
+          clientId,
+          setTimeout(() => {
+            copiedTimeoutsRef.current.delete(clientId);
+            setCopiedClientIds((prev) => {
+              const next = new Set(prev);
+              next.delete(clientId);
+              return next;
+            });
+          }, 2000),
         );
       } catch {
-        setError("Clipboard write failed.");
+        if (selectedPoolRef.current === poolIdAtStart) {
+          setError("Clipboard write failed.");
+        }
       }
     },
     [setError],
@@ -1536,8 +1590,8 @@ export default function CognitoPage() {
                     {clients.map((client) => {
                       const clientId = client.ClientId ?? "";
                       const revealed = clientId ? revealedSecrets[clientId] : undefined;
-                      const isRevealing = revealingClientId === clientId;
-                      const isCopied = copiedClientId === clientId;
+                      const isRevealing = (revealingInflightByClientId[clientId] ?? 0) > 0;
+                      const isCopied = copiedClientIds.has(clientId);
 
                       return (
                         <tr key={client.ClientId} className="border-t" style={{ borderColor: "var(--border)" }}>
