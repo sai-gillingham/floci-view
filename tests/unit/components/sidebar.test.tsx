@@ -13,15 +13,17 @@ describe("Sidebar", () => {
     currentPath = "/";
   });
 
-  it("renders all 5 service links and category headers", () => {
+  it("renders all 6 service links and category headers", () => {
     render(<Sidebar />);
     expect(screen.getByRole("link", { name: /Dashboard/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /S3/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /SQS/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /Step Functions/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /CloudWatch/ })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Cognito/ })).toBeInTheDocument();
     expect(screen.getByText("Storage")).toBeInTheDocument();
     expect(screen.getByText("Messaging")).toBeInTheDocument();
+    expect(screen.getByText("Orchestration")).toBeInTheDocument();
     expect(screen.getByText("Monitoring")).toBeInTheDocument();
     expect(screen.getByText("Security")).toBeInTheDocument();
   });

@@ -3,6 +3,7 @@ import { expect, test } from "@playwright/test";
 const targets = [
   { name: "S3", path: "/s3" },
   { name: "SQS", path: "/sqs" },
+  { name: "Step Functions", path: "/stepfunctions" },
   { name: "CloudWatch", path: "/cloudwatch" },
   { name: "Cognito", path: "/cognito" },
 ];
